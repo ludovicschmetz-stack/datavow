@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DataVow Report — {{ contract.metadata.name }}</title>
+<style>
+  :root {
+    --c-bg: #fafafa;
+    --c-surface: #ffffff;
+    --c-text: #1a1a2e;
+    --c-muted: #6b7280;
+    --c-border: #e5e7eb;
+    --c-brand: #1e3a5f;
+    --c-brand-light: #2d5a8e;
+    --c-kept: #059669;
+    --c-kept-bg: #d1fae5;
+    --c-strained: #d97706;
+    --c-strained-bg: #fef3c7;
+    --c-broken: #dc2626;
+    --c-broken-bg: #fee2e2;
+    --c-shattered: #991b1b;
+    --c-shattered-bg: #fecaca;
+    --c-critical: #dc2626;
+    --c-warning: #d97706;
+    --c-info: #6b7280;
+    --c-pass: #059669;
+    --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--c-bg);
+    color: var(--c-text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    background: linear-gradient(135deg, var(--c-brand) 0%, var(--c-brand-light) 100%);
+    color: white;
+    padding: 32px 0;
+  }
+  header .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .brand { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
+  .brand strong { font-size: 22px; letter-spacing: 0; text-transform: none; opacity: 1; display: block; margin-top: 2px; }
+  .verdict-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 20px; border-radius: 8px;
+    font-size: 18px; font-weight: 700;
+  }
+  .verdict-badge .emoji { font-size: 24px; }
+  .verdict-kept { background: var(--c-kept-bg); color: var(--c-kept); }
+  .verdict-strained { background: var(--c-strained-bg); color: var(--c-strained); }
+  .verdict-broken { background: var(--c-broken-bg); color: var(--c-broken); }
+  .verdict-shattered { background: var(--c-shattered-bg); color: var(--c-shattered); }
+
+  section { margin-top: 28px; }
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 16px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--c-brand);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--c-brand);
+  }
+
+  .score-grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .score-circle {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border: 6px solid var(--c-border);
+  }
+  .score-circle.kept { border-color: var(--c-kept); }
+  .score-circle.strained { border-color: var(--c-strained); }
+  .score-circle.broken { border-color: var(--c-broken); }
+  .score-circle.shattered { border-color: var(--c-shattered); }
+  .score-number { font-size: 42px; font-weight: 800; line-height: 1; }
+  .score-label { font-size: 12px; color: var(--c-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .score-number.kept { color: var(--c-kept); }
+  .score-number.strained { color: var(--c-strained); }
+  .score-number.broken { color: var(--c-broken); }
+  .score-number.shattered { color: var(--c-shattered); }
+
+  .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .counter {
+    text-align: center; padding: 14px 8px;
+    border-radius: 8px; background: var(--c-bg);
+  }
+  .counter-value { font-size: 28px; font-weight: 800; line-height: 1; }
+  .counter-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-muted); margin-top: 4px; }
+  .counter-value.pass { color: var(--c-pass); }
+  .counter-value.critical { color: var(--c-critical); }
+  .counter-value.warning { color: var(--c-warning); }
+  .counter-value.info { color: var(--c-info); }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .meta-item label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-muted); margin-bottom: 2px; }
+  .meta-item span { font-weight: 600; }
+  .tag {
+    display: inline-block; padding: 2px 8px;
+    background: var(--c-bg); border: 1px solid var(--c-border);
+    border-radius: 4px; font-size: 12px; margin-right: 4px;
+    font-family: var(--font-mono);
+  }
+  .tag-pii { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; padding: 10px 12px;
+    background: var(--c-bg); font-weight: 700;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--c-muted);
+    border-bottom: 2px solid var(--c-border);
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--c-border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  .type-badge {
+    display: inline-block; padding: 2px 8px;
+    background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: 4px; font-family: var(--font-mono);
+    font-size: 12px; color: #1e40af;
+  }
+  .flag { font-size: 13px; }
+  .flag-yes { color: var(--c-pass); }
+  .flag-no { color: var(--c-border); }
+
+  .finding-group { margin-bottom: 20px; }
+  .finding-group-title {
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--c-muted); margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .finding {
+    display: grid;
+    grid-template-columns: 28px 80px 1fr;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    align-items: start;
+    font-size: 14px;
+  }
+  .finding:nth-child(even) { background: var(--c-bg); }
+  .finding-icon { font-size: 16px; text-align: center; padding-top: 1px; }
+  .finding-pass .finding-icon { color: var(--c-pass); }
+  .finding-fail .finding-icon { color: var(--c-critical); }
+  .sev {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 4px; font-size: 11px;
+    font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; text-align: center;
+  }
+  .sev-critical { background: #fee2e2; color: var(--c-critical); }
+  .sev-warning { background: #fef3c7; color: var(--c-warning); }
+  .sev-info { background: #f3f4f6; color: var(--c-info); }
+  .finding-details { font-size: 12px; color: var(--c-muted); font-family: var(--font-mono); margin-top: 2px; }
+
+  footer {
+    margin-top: 32px; padding: 20px 0;
+    border-top: 1px solid var(--c-border);
+    text-align: center;
+    font-size: 12px; color: var(--c-muted);
+  }
+  footer strong { color: var(--c-brand); }
+
+  @media print {
+    body { font-size: 12px; }
+    header { padding: 16px 0; }
+    .card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+    .container { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="brand">
+      DATAVOW
+      <strong>{{ contract.metadata.name }}</strong>
+    </div>
+    <div class="verdict-badge verdict-{{ verdict_class }}">
+      <span class="emoji">{{ result.verdict.emoji }}</span>
+      {{ result.verdict.value }}
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <section>
+    <div class="card">
+      <h2>Vow Score</h2>
+      <div class="score-grid">
+        <div class="score-circle {{ verdict_class }}">
+          <div class="score-number {{ verdict_class }}">{{ result.score }}</div>
+          <div class="score-label">out of 100</div>
+        </div>
+        <div class="counters">
+          <div class="counter">
+            <div class="counter-value pass">{{ result.passed_count }}</div>
+            <div class="counter-label">Passed</div>
+          </div>
+          <div class="counter">
+            <div class="counter-value critical">{{ result.critical_count }}</div>
+            <div class="counter-label">Critical</div>
+          </div>
+          <div class="counter">
+            <div class="counter-value warning">{{ result.warning_count }}</div>
+            <div class="counter-label">Warning</div>
+          </div>
+          <div class="counter">
+            <div class="counter-value info">{{ result.info_count }}</div>
+            <div class="counter-label">Info</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Contract</h2>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <label>Name</label>
+          <span>{{ contract.metadata.name }}</span>
+        </div>
+        <div class="meta-item">
+          <label>Version</label>
+          <span>{{ contract.metadata.version }}</span>
+        </div>
+        <div class="meta-item">
+          <label>Owner</label>
+          <span>{{ contract.metadata.owner or "—" }}</span>
+        </div>
+        <div class="meta-item">
+          <label>Domain</label>
+          <span>{{ contract.metadata.domain or "—" }}</span>
+        </div>
+      </div>
+      {% if contract.metadata.description %}
+      <p style="margin-top: 12px; color: var(--c-muted);">{{ contract.metadata.description }}</p>
+      {% endif %}
+      {% if contract.metadata.tags %}
+      <div style="margin-top: 10px;">
+        {% for tag in contract.metadata.tags %}
+        <span class="tag{% if tag == 'pii' %} tag-pii{% endif %}">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div style="margin-top: 12px;">
+        <div class="meta-item">
+          <label>Source</label>
+          <span style="font-family: var(--font-mono); font-size: 13px;">{{ result.source_path }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Schema — {{ contract.schema_.fields | length }} fields</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Unique</th>
+            <th>PII</th>
+            <th>Constraints</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for field in contract.schema_.fields %}
+          <tr>
+            <td><strong>{{ field.name }}</strong></td>
+            <td><span class="type-badge">{{ field.type.value }}</span></td>
+            <td class="flag {% if field.required %}flag-yes{% else %}flag-no{% endif %}">{{ "✓" if field.required else "—" }}</td>
+            <td class="flag {% if field.unique %}flag-yes{% else %}flag-no{% endif %}">{{ "✓" if field.unique else "—" }}</td>
+            <td>{% if field.pii %}<span class="tag tag-pii">PII</span>{% else %}<span class="flag flag-no">—</span>{% endif %}</td>
+            <td style="font-size: 12px; color: var(--c-muted);">
+              {% set constraints = [] %}
+              {% if field.pattern %}{% set _ = constraints.append("pattern: " ~ field.pattern) %}{% endif %}
+              {% if field.min is not none %}{% set _ = constraints.append("min: " ~ field.min) %}{% endif %}
+              {% if field.max is not none %}{% set _ = constraints.append("max: " ~ field.max) %}{% endif %}
+              {% if field.allowed_values %}{% set _ = constraints.append("values: " ~ field.allowed_values | join(", ")) %}{% endif %}
+              {{ constraints | join(" · ") if constraints else "—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Findings — {{ result.findings | length }} checks</h2>
+
+      {% if failed_findings %}
+      <div class="finding-group">
+        <div class="finding-group-title">Failures ({{ failed_findings | length }})</div>
+        {% for f in failed_findings %}
+        <div class="finding finding-fail">
+          <div class="finding-icon">✗</div>
+          <div><span class="sev sev-{{ f.severity.value | lower }}">{{ f.severity.value }}</span></div>
+          <div>
+            <strong>{{ f.rule }}</strong> <span style="color: var(--c-muted);">[{{ f.category }}]</span><br>
+            {{ f.message }}
+            {% if f.details %}<div class="finding-details">{{ f.details }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if passed_findings %}
+      <div class="finding-group">
+        <div class="finding-group-title">Passed ({{ passed_findings | length }})</div>
+        {% for f in passed_findings %}
+        <div class="finding finding-pass">
+          <div class="finding-icon">✓</div>
+          <div><span class="sev sev-{{ f.severity.value | lower }}">{{ f.severity.value }}</span></div>
+          <div>
+            <strong>{{ f.rule }}</strong> <span style="color: var(--c-muted);">[{{ f.category }}]</span><br>
+            {{ f.message }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    Generated by <strong>DataVow v{{ version }}</strong> on {{ timestamp }}<br>
+    <em>A solemn vow on your data. From YAML to verdict.</em>
+  </div>
+</footer>
+
+</body>
+</html>

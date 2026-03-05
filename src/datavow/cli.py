@@ -3,6 +3,7 @@
 Commands:
   init      Scaffold a new datavow project.
   validate  Validate a data source against a contract.
+  report    Generate an HTML or Markdown report from a validation.
 """
 
 from __future__ import annotations
@@ -159,6 +160,71 @@ def validate(
 
     if ci and result.has_critical_failures:
         raise typer.Exit(code=1)
+
+
+# ──────────────────────────────────────────────
+# datavow report
+# ──────────────────────────────────────────────
+
+@app.command()
+def report(
+    contract: Annotated[
+        Path,
+        typer.Argument(help="Path to the contract YAML file.", exists=True, readable=True),
+    ],
+    source: Annotated[
+        Path,
+        typer.Argument(help="Path to the data source (CSV, Parquet, JSON).", exists=True, readable=True),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output file path. Default: <contract_name>-report.<format>"),
+    ] = None,
+    format: Annotated[
+        str,
+        typer.Option("--format", "-f", help="Report format: html or markdown (md)."),
+    ] = "html",
+) -> None:
+    """Generate an HTML or Markdown report from a data validation.
+
+    Runs validation then produces a standalone report file that can be
+    shared with stakeholders, attached to deliveries, or published.
+    """
+    from datavow.contract import DataContract
+    from datavow.reporter import write_report
+    from datavow.validator import validate as run_validate
+
+    fmt = format.lower()
+    if fmt not in ("html", "markdown", "md"):
+        console.print(f"[bold red]Error:[/] Unknown format '{format}'. Use 'html' or 'markdown'.")
+        raise typer.Exit(code=2)
+
+    try:
+        parsed_contract = DataContract.from_yaml(contract)
+        result = run_validate(contract, source)
+    except FileNotFoundError as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(code=2)
+    except ValueError as e:
+        console.print(f"[bold red]Contract error:[/] {e}")
+        raise typer.Exit(code=2)
+    except Exception as e:
+        console.print(f"[bold red]Validation error:[/] {e}")
+        raise typer.Exit(code=2)
+
+    if output is None:
+        ext = "md" if fmt in ("markdown", "md") else "html"
+        output = Path(f"{parsed_contract.metadata.name}-report.{ext}")
+
+    report_path = write_report(parsed_contract, result, output, format=fmt)
+
+    v = result.verdict
+    console.print()
+    console.print(
+        f"{v.emoji} [bold]{parsed_contract.metadata.name}[/]: "
+        f"{v.value} (score={result.score})"
+    )
+    console.print(f"Report written to [bold cyan]{report_path}[/]")
 
 
 # ──────────────────────────────────────────────
