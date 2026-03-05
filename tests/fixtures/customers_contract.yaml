@@ -1,0 +1,29 @@
+apiVersion: datavow/v1
+kind: DataContract
+metadata:
+  name: customers
+  version: 1.0.0
+  owner: data-team@company.com
+  domain: sales
+  description: "Customer master data"
+
+schema:
+  type: table
+  fields:
+    - name: customer_id
+      type: integer
+      required: true
+      unique: true
+    - name: email
+      type: string
+      required: true
+    - name: country
+      type: string
+      required: true
+
+quality:
+  rules:
+    - name: id_not_null
+      type: not_null
+      field: customer_id
+      severity: CRITICAL
