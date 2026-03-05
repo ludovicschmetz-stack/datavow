@@ -21,7 +21,7 @@ from rich.table import Table
 from rich.text import Text
 
 from datavow import __version__
-from datavow.findings import Finding, Severity, ValidationResult, Verdict
+from datavow.findings import Severity, ValidationResult, Verdict
 
 app = typer.Typer(
     name="datavow",
@@ -55,8 +55,9 @@ def _version_callback(value: bool) -> None:
 def main(
     version: Annotated[
         Optional[bool],
-        typer.Option("--version", "-v", help="Show version.", callback=_version_callback,
-                     is_eager=True),
+        typer.Option(
+            "--version", "-v", help="Show version.", callback=_version_callback, is_eager=True
+        ),
     ] = None,
 ) -> None:
     """DataVow — A solemn vow on your data."""
@@ -111,6 +112,7 @@ def init(
 # datavow define
 # ──────────────────────────────────────────────
 
+
 @app.command()
 def define(
     contract: Annotated[
@@ -158,8 +160,7 @@ def define(
     required_count = sum(1 for f in fields if f.required)
     pii_count = sum(1 for f in fields if f.pii)
     console.print(
-        f"[bold]Schema:[/] {len(fields)} fields "
-        f"({required_count} required, {pii_count} PII)"
+        f"[bold]Schema:[/] {len(fields)} fields ({required_count} required, {pii_count} PII)"
     )
     for f in fields:
         flags = []
@@ -201,6 +202,7 @@ def define(
 # datavow validate
 # ──────────────────────────────────────────────
 
+
 @app.command()
 def validate(
     contract: Annotated[
@@ -209,7 +211,9 @@ def validate(
     ],
     source: Annotated[
         Path,
-        typer.Argument(help="Path to the data source (CSV, Parquet, JSON).", exists=True, readable=True),
+        typer.Argument(
+            help="Path to the data source (CSV, Parquet, JSON).", exists=True, readable=True
+        ),
     ],
     output: Annotated[
         str,
@@ -258,6 +262,7 @@ def validate(
 # datavow report
 # ──────────────────────────────────────────────
 
+
 @app.command()
 def report(
     contract: Annotated[
@@ -266,11 +271,15 @@ def report(
     ],
     source: Annotated[
         Path,
-        typer.Argument(help="Path to the data source (CSV, Parquet, JSON).", exists=True, readable=True),
+        typer.Argument(
+            help="Path to the data source (CSV, Parquet, JSON).", exists=True, readable=True
+        ),
     ],
     output: Annotated[
         Path,
-        typer.Option("--output", "-o", help="Output file path. Default: <contract_name>-report.<format>"),
+        typer.Option(
+            "--output", "-o", help="Output file path. Default: <contract_name>-report.<format>"
+        ),
     ] = None,
     format: Annotated[
         str,
@@ -313,8 +322,7 @@ def report(
     v = result.verdict
     console.print()
     console.print(
-        f"{v.emoji} [bold]{parsed_contract.metadata.name}[/]: "
-        f"{v.value} (score={result.score})"
+        f"{v.emoji} [bold]{parsed_contract.metadata.name}[/]: {v.value} (score={result.score})"
     )
     console.print(f"Report written to [bold cyan]{report_path}[/]")
 
@@ -375,8 +383,7 @@ def ci_cmd(
 
     # Find all contract YAML files
     contract_files = sorted(
-        p for p in contracts_path.iterdir()
-        if p.suffix in (".yaml", ".yml") and p.is_file()
+        p for p in contracts_path.iterdir() if p.suffix in (".yaml", ".yml") and p.is_file()
     )
 
     if not contract_files:
@@ -399,18 +406,14 @@ def ci_cmd(
         source_file = _find_source(name, sources_path)
 
         if source_file is None:
-            console.print(
-                f"  [yellow]⊘[/] {name}: no matching source in {sources_path}"
-            )
+            console.print(f"  [yellow]⊘[/] {name}: no matching source in {sources_path}")
             results.append((name, "skipped", None))
             continue
 
         try:
             result = run_validate(contract_file, source_file)
             v = result.verdict
-            console.print(
-                f"  {v.emoji} {name}: {v.value} (score={result.score})"
-            )
+            console.print(f"  {v.emoji} {name}: {v.value} (score={result.score})")
             results.append((name, "validated", result))
             if result.has_critical_failures:
                 has_critical = True
@@ -451,6 +454,7 @@ def ci_cmd(
 # ──────────────────────────────────────────────
 # Output formatters
 # ──────────────────────────────────────────────
+
 
 def _output_table(result: ValidationResult, verbose: bool = False) -> None:
     console.print()
@@ -536,8 +540,12 @@ def _output_json(result: ValidationResult) -> None:
         },
         "findings": [
             {
-                "rule": f.rule, "category": f.category, "severity": f.severity.value,
-                "passed": f.passed, "message": f.message, "details": f.details,
+                "rule": f.rule,
+                "category": f.category,
+                "severity": f.severity.value,
+                "passed": f.passed,
+                "message": f.message,
+                "details": f.details,
             }
             for f in result.findings
         ],

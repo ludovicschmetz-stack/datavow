@@ -6,5 +6,10 @@ build/
 .venv/
 .pytest_cache/
 .DS_Store
+.ruff_cache/
+
+# Generated files
 *.html
 !src/datavow/templates/*.j2
+datavow.yaml
+integrate-*.sh

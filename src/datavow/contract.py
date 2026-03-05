@@ -47,8 +47,14 @@ class FieldType(str, Enum):
             FieldType.DECIMAL: ["DECIMAL", "NUMERIC", "FLOAT", "DOUBLE", "REAL"],
             FieldType.BOOLEAN: ["BOOLEAN", "BOOL"],
             FieldType.DATE: ["DATE"],
-            FieldType.TIMESTAMP: ["TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMPTZ",
-                                  "TIMESTAMP_S", "TIMESTAMP_MS", "TIMESTAMP_NS"],
+            FieldType.TIMESTAMP: [
+                "TIMESTAMP",
+                "TIMESTAMP WITH TIME ZONE",
+                "TIMESTAMPTZ",
+                "TIMESTAMP_S",
+                "TIMESTAMP_MS",
+                "TIMESTAMP_NS",
+            ],
         }
         return mapping[self]
 
@@ -121,8 +127,17 @@ class QualityRule(BaseModel):
     def validate_rule_fields(self) -> "QualityRule":
         if self.type == RuleType.SQL and not self.query:
             raise ValueError(f"Rule '{self.name}': SQL rules require 'query'")
-        if self.type in (RuleType.NOT_NULL, RuleType.UNIQUE, RuleType.RANGE,
-                         RuleType.ACCEPTED_VALUES, RuleType.REGEX) and not self.field:
+        if (
+            self.type
+            in (
+                RuleType.NOT_NULL,
+                RuleType.UNIQUE,
+                RuleType.RANGE,
+                RuleType.ACCEPTED_VALUES,
+                RuleType.REGEX,
+            )
+            and not self.field
+        ):
             raise ValueError(f"Rule '{self.name}': {self.type.value} rules require 'field'")
         return self
 
@@ -193,7 +208,7 @@ class DataContract(BaseModel):
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Contract file not found: {path}")
-        if not path.suffix in (".yaml", ".yml"):
+        if path.suffix not in (".yaml", ".yml"):
             raise ValueError(f"Expected .yaml/.yml file, got: {path.suffix}")
 
         with open(path) as f:

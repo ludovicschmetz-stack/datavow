@@ -1,0 +1,55 @@
+# Example GitHub Actions workflow for validating data contracts with DataVow.
+# Copy this file to your repo's .github/workflows/ directory.
+#
+# Prerequisites:
+# - contracts/ directory with YAML contract files
+# - data/ directory with matching source files (CSV, Parquet, JSON)
+#   Convention: contracts/orders.yaml → data/orders.csv
+
+name: DataVow — Data Contract Validation
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - 'data/**'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'data/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install DataVow
+        run: pip install datavow
+
+      - name: Validate contracts
+        run: datavow ci contracts/ data/
+
+      - name: Generate reports
+        if: always()
+        run: |
+          mkdir -p reports
+          for contract in contracts/*.yaml; do
+            name=$(basename "$contract" .yaml)
+            source="data/${name}.csv"
+            if [ -f "$source" ]; then
+              datavow report "$contract" "$source" -o "reports/${name}-report.html"
+            fi
+          done
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: datavow-reports
+          path: reports/
