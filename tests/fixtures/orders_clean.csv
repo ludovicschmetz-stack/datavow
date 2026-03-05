@@ -1,0 +1,6 @@
+order_id,customer_email,total_amount,status,created_at
+1,alice@example.com,99.99,confirmed,2026-03-05T10:00:00
+2,bob@example.com,149.50,shipped,2026-03-05T11:30:00
+3,carol@example.com,29.95,pending,2026-03-05T12:15:00
+4,dave@example.com,250.00,delivered,2026-03-04T09:00:00
+5,eve@example.com,15.00,cancelled,2026-03-04T14:30:00

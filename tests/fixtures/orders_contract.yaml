@@ -1,0 +1,56 @@
+apiVersion: datavow/v1
+kind: DataContract
+metadata:
+  name: orders
+  version: 1.0.0
+  owner: data-team@company.com
+  domain: sales
+  description: "Customer orders from the e-commerce platform"
+  tags: [pii, financial, critical]
+
+schema:
+  type: table
+  fields:
+    - name: order_id
+      type: integer
+      required: true
+      unique: true
+      description: "Unique order identifier"
+    - name: customer_email
+      type: string
+      required: true
+      pii: true
+      pattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+    - name: total_amount
+      type: decimal
+      required: true
+      min: 0
+      description: "Order total in EUR"
+    - name: status
+      type: string
+      required: true
+      allowed_values: [pending, confirmed, shipped, delivered, cancelled]
+    - name: created_at
+      type: timestamp
+      required: true
+
+quality:
+  rules:
+    - name: no_negative_totals
+      type: sql
+      query: "SELECT COUNT(*) FROM {table} WHERE total_amount < 0"
+      threshold: 0
+      severity: CRITICAL
+    - name: email_not_null
+      type: not_null
+      field: customer_email
+      severity: CRITICAL
+    - name: daily_volume
+      type: row_count
+      min: 3
+      max: 100000
+      severity: WARNING
+
+sla:
+  freshness: 24h
+  completeness: "99.5%"
