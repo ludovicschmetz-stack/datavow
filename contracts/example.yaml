@@ -1,0 +1,11 @@
+contract: example
+description: Sample data contract
+columns:
+- name: id
+  type: integer
+  not_null: true
+- name: name
+  type: string
+  not_null: true
+- name: created_at
+  type: timestamp
