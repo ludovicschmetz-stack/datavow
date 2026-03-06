@@ -144,6 +144,7 @@ class TestReportCLI:
     def test_report_html_default(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(app, ["report", str(CONTRACT), str(CLEAN_DATA)])
@@ -157,6 +158,7 @@ class TestReportCLI:
     def test_report_markdown(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(app, ["report", str(CONTRACT), str(CLEAN_DATA), "-f", "md"])
@@ -167,6 +169,7 @@ class TestReportCLI:
     def test_report_custom_output(self, tmp_path):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         out = tmp_path / "custom-report.html"
         runner = CliRunner()
         result = runner.invoke(app, ["report", str(CONTRACT), str(DIRTY_DATA), "-o", str(out)])
@@ -178,6 +181,7 @@ class TestReportCLI:
     def test_report_dirty_shows_score(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         result = runner.invoke(app, ["report", str(CONTRACT), str(DIRTY_DATA)])

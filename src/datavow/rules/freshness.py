@@ -42,8 +42,7 @@ def validate_freshness(
 
     if contract.sla.freshness:
         ts_fields = [
-            f for f in contract.schema_.fields
-            if f.type in (FieldType.TIMESTAMP, FieldType.DATE)
+            f for f in contract.schema_.fields if f.type in (FieldType.TIMESTAMP, FieldType.DATE)
         ]
         for f in ts_fields:
             checks.append((f.name, contract.sla.freshness, "sla"))
@@ -53,18 +52,18 @@ def validate_freshness(
             max_age = parse_duration(duration_str)
             threshold = now - max_age
 
-            result = con.execute(
-                f'SELECT MAX("{field_name}") FROM {table}'
-            ).fetchone()[0]
+            result = con.execute(f'SELECT MAX("{field_name}") FROM {table}').fetchone()[0]
 
             if result is None:
-                findings.append(Finding(
-                    rule=f"freshness:{field_name}",
-                    category="freshness",
-                    severity=Severity.CRITICAL,
-                    message=f"Field '{field_name}' has no non-null values — cannot assess freshness",
-                    passed=False,
-                ))
+                findings.append(
+                    Finding(
+                        rule=f"freshness:{field_name}",
+                        category="freshness",
+                        severity=Severity.CRITICAL,
+                        message=f"Field '{field_name}' has no non-null values — cannot assess freshness",
+                        passed=False,
+                    )
+                )
                 continue
 
             if isinstance(result, datetime):
@@ -76,27 +75,31 @@ def validate_freshness(
             age = now - latest
             age_str = _format_timedelta(age)
 
-            findings.append(Finding(
-                rule=f"freshness:{field_name}",
-                category="freshness",
-                severity=Severity.CRITICAL if source == "sla" else Severity.WARNING,
-                message=(
-                    f"Field '{field_name}' is fresh (age: {age_str}, max: {duration_str})"
-                    if passed
-                    else f"Field '{field_name}' is stale (age: {age_str}, max allowed: {duration_str})"
-                ),
-                passed=passed,
-                details=f"latest={latest.isoformat()}, threshold={threshold.isoformat()}",
-            ))
+            findings.append(
+                Finding(
+                    rule=f"freshness:{field_name}",
+                    category="freshness",
+                    severity=Severity.CRITICAL if source == "sla" else Severity.WARNING,
+                    message=(
+                        f"Field '{field_name}' is fresh (age: {age_str}, max: {duration_str})"
+                        if passed
+                        else f"Field '{field_name}' is stale (age: {age_str}, max allowed: {duration_str})"
+                    ),
+                    passed=passed,
+                    details=f"latest={latest.isoformat()}, threshold={threshold.isoformat()}",
+                )
+            )
         except Exception as e:
-            findings.append(Finding(
-                rule=f"freshness:{field_name}",
-                category="freshness",
-                severity=Severity.WARNING,
-                message=f"Freshness check error for '{field_name}': {e}",
-                passed=False,
-                details=str(e),
-            ))
+            findings.append(
+                Finding(
+                    rule=f"freshness:{field_name}",
+                    category="freshness",
+                    severity=Severity.WARNING,
+                    message=f"Freshness check error for '{field_name}': {e}",
+                    passed=False,
+                    details=str(e),
+                )
+            )
 
     return findings
 

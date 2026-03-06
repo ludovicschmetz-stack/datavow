@@ -33,7 +33,13 @@ class TestContractParsing:
     def test_required_fields(self):
         c = DataContract.from_yaml(CONTRACT)
         required = [f.name for f in c.schema_.fields if f.required]
-        assert set(required) == {"order_id", "customer_email", "total_amount", "status", "created_at"}
+        assert set(required) == {
+            "order_id",
+            "customer_email",
+            "total_amount",
+            "status",
+            "created_at",
+        }
 
     def test_unique_fields(self):
         c = DataContract.from_yaml(CONTRACT)
@@ -75,11 +81,15 @@ class TestValidateClean:
         assert self.result.score >= 80
 
     def test_all_schema_checks_pass(self):
-        schema_failures = [f for f in self.result.findings if f.category == "schema" and not f.passed]
+        schema_failures = [
+            f for f in self.result.findings if f.category == "schema" and not f.passed
+        ]
         assert len(schema_failures) == 0
 
     def test_all_quality_rules_pass(self):
-        quality_failures = [f for f in self.result.findings if f.category == "quality" and not f.passed]
+        quality_failures = [
+            f for f in self.result.findings if f.category == "quality" and not f.passed
+        ]
         assert len(quality_failures) == 0
 
     def test_findings_exist(self):
@@ -98,7 +108,9 @@ class TestValidateDirty:
         assert self.result.score < 80
 
     def test_detects_null_email(self):
-        nulls = [f for f in self.result.findings if "required:customer_email" in f.rule and not f.passed]
+        nulls = [
+            f for f in self.result.findings if "required:customer_email" in f.rule and not f.passed
+        ]
         assert len(nulls) > 0
 
     def test_detects_duplicate_order_id(self):
@@ -106,15 +118,21 @@ class TestValidateDirty:
         assert len(dups) > 0
 
     def test_detects_negative_amount(self):
-        negatives = [f for f in self.result.findings if f.rule == "no_negative_totals" and not f.passed]
+        negatives = [
+            f for f in self.result.findings if f.rule == "no_negative_totals" and not f.passed
+        ]
         assert len(negatives) > 0
 
     def test_detects_email_pattern_violation(self):
-        patterns = [f for f in self.result.findings if "pattern:customer_email" in f.rule and not f.passed]
+        patterns = [
+            f for f in self.result.findings if "pattern:customer_email" in f.rule and not f.passed
+        ]
         assert len(patterns) > 0
 
     def test_detects_invalid_status(self):
-        status_checks = [f for f in self.result.findings if "allowed_values:status" in f.rule and not f.passed]
+        status_checks = [
+            f for f in self.result.findings if "allowed_values:status" in f.rule and not f.passed
+        ]
         assert len(status_checks) > 0
 
     def test_verdict_broken_or_worse(self):
@@ -170,6 +188,7 @@ class TestCLI:
     def test_validate_clean_exit_zero(self):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(CONTRACT), str(CLEAN_DATA), "--ci"])
         assert result.exit_code == 0
@@ -177,6 +196,7 @@ class TestCLI:
     def test_validate_dirty_ci_exit_one(self):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(CONTRACT), str(DIRTY_DATA), "--ci"])
         assert result.exit_code == 1
@@ -184,6 +204,7 @@ class TestCLI:
     def test_json_output(self):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(CONTRACT), str(CLEAN_DATA), "-o", "json"])
         assert result.exit_code == 0
@@ -193,6 +214,7 @@ class TestCLI:
     def test_summary_output(self):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(CONTRACT), str(DIRTY_DATA), "-o", "summary"])
         assert result.exit_code == 0
@@ -201,6 +223,7 @@ class TestCLI:
     def test_verbose_shows_passed(self):
         from typer.testing import CliRunner
         from datavow.cli import app
+
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(CONTRACT), str(CLEAN_DATA), "--verbose"])
         assert result.exit_code == 0

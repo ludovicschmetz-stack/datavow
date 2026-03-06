@@ -23,8 +23,7 @@ def load_file(
     ext = path.suffix.lower()
     if ext not in _SUPPORTED_EXTENSIONS:
         raise ValueError(
-            f"Unsupported file format: {ext}. "
-            f"Supported: {', '.join(sorted(_SUPPORTED_EXTENSIONS))}"
+            f"Unsupported file format: {ext}. Supported: {', '.join(sorted(_SUPPORTED_EXTENSIONS))}"
         )
 
     escaped_path = str(path).replace("'", "''")

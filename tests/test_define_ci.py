@@ -21,6 +21,7 @@ runner = CliRunner()
 # datavow define
 # ──────────────────────────────────────────────
 
+
 class TestDefine:
     def test_valid_contract(self):
         result = runner.invoke(app, ["define", str(CONTRACT)])
@@ -77,6 +78,7 @@ class TestDefine:
 # ──────────────────────────────────────────────
 # datavow ci
 # ──────────────────────────────────────────────
+
 
 @pytest.fixture
 def ci_dirs(tmp_path):
@@ -154,13 +156,9 @@ class TestCI:
     def test_fail_on_warning(self, ci_dirs):
         contracts, sources = ci_dirs
         # Clean data passes — should exit 0 even with --fail-on warning
-        result = runner.invoke(app, [
-            "ci", str(contracts), str(sources), "--fail-on", "warning"
-        ])
+        result = runner.invoke(app, ["ci", str(contracts), str(sources), "--fail-on", "warning"])
         assert result.exit_code == 0
 
     def test_nonexistent_dir_exits_2(self, tmp_path):
-        result = runner.invoke(app, [
-            "ci", str(tmp_path / "nope"), str(tmp_path / "also_nope")
-        ])
+        result = runner.invoke(app, ["ci", str(tmp_path / "nope"), str(tmp_path / "also_nope")])
         assert result.exit_code == 2
