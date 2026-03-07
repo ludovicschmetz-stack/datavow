@@ -553,5 +553,265 @@ def _output_json(result: ValidationResult) -> None:
     console.print_json(json.dumps(data))
 
 
+# ──────────────────────────────────────────────
+# datavow dbt (subcommand group)
+# ──────────────────────────────────────────────
+
+dbt_app = typer.Typer(
+    name="dbt",
+    help="dbt integration — generate contracts from manifest, validate dbt models.",
+    no_args_is_help=True,
+)
+app.add_typer(dbt_app)
+
+
+@dbt_app.command(name="generate")
+def dbt_generate(
+    manifest: Annotated[
+        Path,
+        typer.Option("--manifest", "-m", help="Path to dbt manifest.json."),
+    ] = Path("target/manifest.json"),
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output directory for generated contracts."),
+    ] = Path("contracts"),
+    owner: Annotated[
+        str,
+        typer.Option("--owner", help="Default owner for generated contracts."),
+    ] = "",
+    models: Annotated[
+        Optional[str],
+        typer.Option("--models", help="Comma-separated model names to generate (default: all)."),
+    ] = None,
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Overwrite existing contracts."),
+    ] = False,
+) -> None:
+    """Generate DataVow contracts from a dbt manifest.json.
+
+    Reads model schemas, column types, and dbt tests from the manifest
+    and creates YAML contracts ready for validation.
+    """
+    from datavow.connectors.dbt import contract_to_yaml, parse_manifest
+
+    if not manifest.exists():
+        console.print(f"[bold red]Error:[/] Manifest not found: {manifest}")
+        console.print("[dim]Run 'dbt compile' or 'dbt run' first to generate the manifest.[/]")
+        raise typer.Exit(code=2)
+
+    parsed_models = parse_manifest(manifest)
+
+    if not parsed_models:
+        console.print("[bold yellow]Warning:[/] No models found in manifest.")
+        raise typer.Exit(code=0)
+
+    # Filter models if specified
+    if models:
+        model_names = {m.strip() for m in models.split(",")}
+        parsed_models = [m for m in parsed_models if m.name in model_names]
+        if not parsed_models:
+            console.print(f"[bold red]Error:[/] None of the specified models found: {models}")
+            raise typer.Exit(code=2)
+
+    output.mkdir(parents=True, exist_ok=True)
+
+    console.print()
+    console.print(
+        f"[bold]DataVow dbt generate[/] — {len(parsed_models)} model(s) from [cyan]{manifest}[/]"
+    )
+    console.print()
+
+    generated = 0
+    skipped = 0
+
+    for model in parsed_models:
+        # Organize by domain
+        domain_dir = output / model.domain if model.domain else output
+        domain_dir.mkdir(parents=True, exist_ok=True)
+        contract_path = domain_dir / f"{model.name}.yaml"
+
+        if contract_path.exists() and not overwrite:
+            console.print(f"  [yellow]⊘[/] {model.name}: exists, skipped (use --overwrite)")
+            skipped += 1
+            continue
+
+        from datavow.connectors.dbt import generate_contract
+
+        contract = generate_contract(model, owner=owner)
+        yaml_content = contract_to_yaml(contract)
+        contract_path.write_text(yaml_content)
+
+        col_count = len(model.columns)
+        rule_count = len(contract.quality.rules)
+        console.print(
+            f"  [green]✓[/] {model.name}: {col_count} fields, "
+            f"{rule_count} rules → [cyan]{contract_path}[/]"
+        )
+        generated += 1
+
+    console.print()
+    console.print(
+        f"[bold]Done:[/] {generated} generated, {skipped} skipped. Contracts in [cyan]{output}[/]"
+    )
+    if generated > 0:
+        console.print(
+            "[dim]Review generated contracts and adjust required/severity fields as needed.[/]"
+        )
+    console.print()
+
+
+@dbt_app.command(name="validate")
+def dbt_validate(
+    manifest: Annotated[
+        Path,
+        typer.Option("--manifest", "-m", help="Path to dbt manifest.json."),
+    ] = Path("target/manifest.json"),
+    contracts_dir: Annotated[
+        Path,
+        typer.Option("--contracts", "-c", help="Directory containing DataVow contracts."),
+    ] = Path("contracts"),
+    profiles: Annotated[
+        Optional[Path],
+        typer.Option("--profiles", help="Path to dbt profiles.yml (default: ~/.dbt/profiles.yml)."),
+    ] = None,
+    project_dir: Annotated[
+        Optional[Path],
+        typer.Option("--project-dir", help="dbt project directory (for auto-resolving profiles)."),
+    ] = None,
+    target: Annotated[
+        Optional[str],
+        typer.Option("--target", "-t", help="dbt target to use (default: from profiles.yml)."),
+    ] = None,
+    models: Annotated[
+        Optional[str],
+        typer.Option("--models", help="Comma-separated model names to validate (default: all)."),
+    ] = None,
+    fail_on: Annotated[
+        str,
+        typer.Option("--fail-on", help="Fail on: 'critical' (default) or 'warning'."),
+    ] = "critical",
+    limit: Annotated[
+        Optional[int],
+        typer.Option("--limit", help="Limit rows to sample from each table (for large datasets)."),
+    ] = None,
+) -> None:
+    """Validate dbt models against DataVow contracts.
+
+    Reads the manifest to find models, matches them with contracts by name,
+    then connects to the warehouse to validate data against each contract.
+
+    Requires database connection via dbt profiles.yml.
+    """
+    from datavow.connectors.dbt import parse_manifest, parse_profiles
+    from datavow.validator import validate_database
+
+    if not manifest.exists():
+        console.print(f"[bold red]Error:[/] Manifest not found: {manifest}")
+        console.print("[dim]Run 'dbt compile' or 'dbt run' first to generate the manifest.[/]")
+        raise typer.Exit(code=2)
+
+    if not contracts_dir.is_dir():
+        console.print(f"[bold red]Error:[/] Contracts directory not found: {contracts_dir}")
+        raise typer.Exit(code=2)
+
+    # Parse connection info
+    try:
+        conn_info = parse_profiles(
+            profiles_path=profiles,
+            project_dir=project_dir or Path.cwd(),
+            target_name=target,
+        )
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(code=2)
+
+    if not conn_info.is_duckdb_attachable:
+        console.print(
+            f"[bold red]Error:[/] Adapter '{conn_info.adapter}' requires extras. "
+            f"Install: pip install datavow[{conn_info.adapter}]"
+        )
+        console.print("[dim]Currently supported without extras: postgres, duckdb[/]")
+        raise typer.Exit(code=2)
+
+    # Parse models from manifest
+    parsed_models = parse_manifest(manifest)
+    if models:
+        model_names = {m.strip() for m in models.split(",")}
+        parsed_models = [m for m in parsed_models if m.name in model_names]
+
+    if not parsed_models:
+        console.print("[bold yellow]Warning:[/] No models found to validate.")
+        raise typer.Exit(code=0)
+
+    # Collect all contract files (including subdirectories for domain structure)
+    contract_files: dict[str, Path] = {}
+    for p in contracts_dir.rglob("*.yaml"):
+        contract_files[p.stem] = p
+    for p in contracts_dir.rglob("*.yml"):
+        if p.stem not in contract_files:
+            contract_files[p.stem] = p
+
+    console.print()
+    console.print(
+        f"[bold]DataVow dbt validate[/] — {len(parsed_models)} model(s), "
+        f"{len(contract_files)} contract(s), adapter={conn_info.adapter}"
+    )
+    console.print()
+
+    has_critical = False
+    has_warning = False
+    validated = 0
+    skipped = 0
+    errors = 0
+    total_score = 0
+
+    for model in parsed_models:
+        contract_path = contract_files.get(model.name)
+        if not contract_path:
+            console.print(f"  [yellow]⊘[/] {model.name}: no contract found, skipped")
+            skipped += 1
+            continue
+
+        table_ref = f"{model.schema}.{model.name}"
+
+        try:
+            result = validate_database(
+                contract_path=contract_path,
+                connection_info=conn_info,
+                table_ref=table_ref,
+                limit=limit,
+            )
+            v = result.verdict
+            console.print(f"  {v.emoji} {model.name}: {v.value} (score={result.score})")
+            validated += 1
+            total_score += result.score
+
+            if result.has_critical_failures:
+                has_critical = True
+            if result.warning_count > 0:
+                has_warning = True
+
+        except Exception as e:
+            console.print(f"  [bold red]✗[/] {model.name}: error — {e}")
+            errors += 1
+            has_critical = True
+
+    # Summary
+    avg_score = total_score // validated if validated > 0 else 0
+    console.print()
+    console.print(
+        f"[bold]Summary:[/] {validated} validated, {skipped} skipped, "
+        f"{errors} error(s). Average score: {avg_score}/100"
+    )
+
+    should_fail = has_critical or (fail_on == "warning" and has_warning)
+    if should_fail:
+        console.print("[bold red]CI FAILED[/]")
+        raise typer.Exit(code=1)
+    else:
+        console.print("[bold green]CI PASSED[/]")
+
+
 if __name__ == "__main__":
     app()

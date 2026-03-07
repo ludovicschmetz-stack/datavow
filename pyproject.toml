@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datavow"
-version = "0.1.0"
+version = "0.2.0"
 description = "A solemn vow on your data. From YAML to verdict."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [{ name = "Ludovic Schmetz" }]
-keywords = ["data-contracts", "data-quality", "validation", "duckdb", "odcs"]
+keywords = ["data-contracts", "data-quality", "validation", "duckdb", "odcs", "dbt"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -41,6 +41,17 @@ Changelog = "https://github.com/ludovicschmetz-stack/datavow/blob/main/CHANGELOG
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.4"]
+snowflake = ["snowflake-connector-python>=3.0"]
+bigquery = ["google-cloud-bigquery>=3.0", "db-dtypes>=1.0"]
+redshift = ["redshift-connector>=2.0"]
+sqlserver = ["pymssql>=2.2"]
+all-warehouses = [
+    "snowflake-connector-python>=3.0",
+    "google-cloud-bigquery>=3.0",
+    "db-dtypes>=1.0",
+    "redshift-connector>=2.0",
+    "pymssql>=2.2",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datavow"]
