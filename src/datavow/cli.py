@@ -813,5 +813,127 @@ def dbt_validate(
         console.print("[bold green]CI PASSED[/]")
 
 
+@dbt_app.command(name="sync")
+def dbt_sync(
+    contracts_dir: Annotated[
+        Path,
+        typer.Option("--contracts", "-c", help="Directory containing DataVow contracts."),
+    ] = Path("contracts"),
+    dbt_project: Annotated[
+        Path,
+        typer.Option("--dbt-project", "-p", help="dbt project root directory."),
+    ] = Path("."),
+    tests_dir: Annotated[
+        Optional[str],
+        typer.Option("--tests-dir", help="Override tests output directory."),
+    ] = None,
+    models: Annotated[
+        Optional[str],
+        typer.Option("--models", help="Comma-separated contract names to sync (default: all)."),
+    ] = None,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean", help="Remove existing datavow tests before syncing."),
+    ] = False,
+) -> None:
+    """Sync DataVow contracts to dbt tests.
+
+    Generates dbt-native tests from contract rules:
+    - Generic tests (schema.yml): not_null, unique, accepted_values
+    - Singular tests (SQL files): sql, row_count, range, regex
+
+    Tests run in ANY warehouse via 'dbt test --select tag:datavow'.
+    """
+    from datavow.connectors.dbt_sync import sync_all, sync_contract
+
+    if not contracts_dir.is_dir():
+        console.print(f"[bold red]Error:[/] Contracts directory not found: {contracts_dir}")
+        raise typer.Exit(code=2)
+
+    console.print()
+    console.print(
+        f"[bold]DataVow dbt sync[/] — syncing contracts from [cyan]{contracts_dir}[/] "
+        f"to dbt project [cyan]{dbt_project}[/]"
+    )
+    console.print()
+
+    if models:
+        # Sync specific contracts
+        model_names = [m.strip() for m in models.split(",")]
+        total_singular = 0
+        total_generic = 0
+
+        for name in model_names:
+            # Find contract file
+            contract_file = None
+            for ext in (".yaml", ".yml"):
+                candidates = list(contracts_dir.rglob(f"{name}{ext}"))
+                if candidates:
+                    contract_file = candidates[0]
+                    break
+
+            if not contract_file:
+                console.print(f"  [yellow]⊘[/] {name}: contract not found, skipped")
+                continue
+
+            try:
+                result = sync_contract(
+                    contract_path=contract_file,
+                    dbt_project_dir=dbt_project,
+                    tests_dir=tests_dir,
+                )
+                total_singular += len(result.singular_tests)
+                total_generic += result.generic_test_count
+                _print_sync_result(result)
+            except Exception as e:
+                console.print(f"  [bold red]✗[/] {name}: error — {e}")
+    else:
+        results = sync_all(
+            contracts_dir=contracts_dir,
+            dbt_project_dir=dbt_project,
+            tests_dir=tests_dir,
+            clean=clean,
+        )
+
+        if not results:
+            console.print("[bold yellow]Warning:[/] No contracts found to sync.")
+            raise typer.Exit(code=0)
+
+        total_singular = sum(len(r.singular_tests) for r in results)
+        total_generic = sum(r.generic_test_count for r in results)
+
+        for result in results:
+            _print_sync_result(result)
+
+    console.print()
+    console.print(
+        f"[bold]Done:[/] {total_singular} singular test(s) + "
+        f"{total_generic} generic test(s) generated"
+    )
+    console.print()
+    console.print("[dim]Run: dbt test --select tag:datavow[/]")
+    console.print()
+
+
+def _print_sync_result(result) -> None:
+    """Print sync result for a single contract."""
+    singular = len(result.singular_tests)
+    generic = result.generic_test_count
+    total = singular + generic
+
+    if total == 0:
+        console.print(f"  [yellow]⊘[/] {result.contract_name}: no rules to sync")
+    else:
+        parts = []
+        if singular:
+            parts.append(f"{singular} SQL")
+        if generic:
+            parts.append(f"{generic} generic")
+        console.print(f"  [green]✓[/] {result.contract_name}: {' + '.join(parts)} test(s)")
+
+    if result.skipped_rules:
+        console.print(f"    [dim]skipped: {', '.join(result.skipped_rules)}[/]")
+
+
 if __name__ == "__main__":
     app()
