@@ -179,14 +179,18 @@ def _build_schema_yml(
         tests: list[Any] = []
 
         if field.required:
-            tests.append({"not_null": {"tags": ["datavow"], "severity": "error"}})
+            tests.append(
+                {"not_null": {"arguments": {}, "tags": ["datavow"], "severity": "error"}}
+            )
         if field.unique:
-            tests.append({"unique": {"tags": ["datavow"], "severity": "error"}})
+            tests.append(
+                {"unique": {"arguments": {}, "tags": ["datavow"], "severity": "error"}}
+            )
         if field.allowed_values:
             tests.append(
                 {
                     "accepted_values": {
-                        "values": field.allowed_values,
+                        "arguments": {"values": field.allowed_values},
                         "tags": ["datavow"],
                         "severity": "warn",
                     }
@@ -223,7 +227,7 @@ def _build_schema_yml(
             ]
             if not existing:
                 columns[col_name]["data_tests"].append(
-                    {"not_null": {"tags": ["datavow"], "severity": severity}}
+                    {"not_null": {"arguments": {}, "tags": ["datavow"], "severity": severity}}
                 )
 
         elif rule.type == RuleType.UNIQUE:
@@ -232,7 +236,7 @@ def _build_schema_yml(
             ]
             if not existing:
                 columns[col_name]["data_tests"].append(
-                    {"unique": {"tags": ["datavow"], "severity": severity}}
+                    {"unique": {"arguments": {}, "tags": ["datavow"], "severity": severity}}
                 )
 
         elif rule.type == RuleType.ACCEPTED_VALUES and rule.values:
@@ -245,7 +249,7 @@ def _build_schema_yml(
                 columns[col_name]["data_tests"].append(
                     {
                         "accepted_values": {
-                            "values": rule.values,
+                            "arguments": {"values": rule.values},
                             "tags": ["datavow"],
                             "severity": severity,
                         }

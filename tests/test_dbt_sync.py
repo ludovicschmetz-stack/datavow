@@ -297,7 +297,7 @@ class TestSchemaYml:
         status_tests = columns["status"]["data_tests"]
         av_tests = [t for t in status_tests if isinstance(t, dict) and "accepted_values" in t]
         assert len(av_tests) == 1
-        assert "confirmed" in av_tests[0]["accepted_values"]["values"]
+        assert "confirmed" in av_tests[0]["accepted_values"]["arguments"]["values"]
 
     def test_datavow_tags_on_all_tests(self, sample_contract):
         contract = DataContract.from_yaml(sample_contract)
