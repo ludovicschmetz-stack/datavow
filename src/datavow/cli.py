@@ -935,5 +935,311 @@ def _print_sync_result(result) -> None:
         console.print(f"    [dim]skipped: {', '.join(result.skipped_rules)}[/]")
 
 
+@dbt_app.command(name="ci")
+def dbt_ci(
+    contracts_dir: Annotated[
+        Path,
+        typer.Option("--contracts", "-c", help="Directory containing DataVow contracts."),
+    ] = Path("contracts"),
+    dbt_project: Annotated[
+        Path,
+        typer.Option("--dbt-project", "-p", help="dbt project root directory."),
+    ] = Path("."),
+    manifest: Annotated[
+        Optional[Path],
+        typer.Option("--manifest", "-m", help="Path to dbt manifest.json (auto-detected)."),
+    ] = None,
+    profiles: Annotated[
+        Optional[Path],
+        typer.Option("--profiles", help="Path to dbt profiles.yml."),
+    ] = None,
+    target: Annotated[
+        Optional[str],
+        typer.Option("--target", "-t", help="dbt target to use."),
+    ] = None,
+    fail_on: Annotated[
+        str,
+        typer.Option("--fail-on", help="Fail on: 'critical' (default) or 'warning'."),
+    ] = "critical",
+    sync: Annotated[
+        bool,
+        typer.Option("--sync/--no-sync", help="Sync contracts to dbt tests before validating."),
+    ] = True,
+    generate_report: Annotated[
+        bool,
+        typer.Option("--report/--no-report", help="Generate HTML reports."),
+    ] = False,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Validation mode: 'dbt-test' (run dbt test) or 'direct' (query warehouse).",
+        ),
+    ] = "dbt-test",
+) -> None:
+    """Full CI pipeline: sync contracts → validate → report.
+
+    Two validation modes:
+
+    'dbt-test' (default, recommended):
+      1. Syncs contracts → dbt tests (SQL + schema.yml)
+      2. Runs 'dbt test --select tag:datavow'
+      3. Parses results for pass/fail
+
+    Works with ALL dbt adapters (Snowflake, BigQuery, Redshift, etc.)
+
+    'direct':
+      1. Connects to warehouse via profiles.yml
+      2. Validates using DuckDB ATTACH (PostgreSQL/DuckDB only)
+    """
+
+    console.print()
+    console.print("[bold]DataVow dbt ci[/] — full pipeline")
+    console.print()
+
+    # Resolve manifest
+    manifest_path = manifest or dbt_project / "target" / "manifest.json"
+
+    if mode == "dbt-test":
+        _dbt_ci_test_mode(
+            contracts_dir=contracts_dir,
+            dbt_project=dbt_project,
+            manifest_path=manifest_path,
+            target=target,
+            fail_on=fail_on,
+            sync_first=sync,
+            generate_report=generate_report,
+        )
+    elif mode == "direct":
+        _dbt_ci_direct_mode(
+            contracts_dir=contracts_dir,
+            manifest_path=manifest_path,
+            profiles_path=profiles,
+            dbt_project=dbt_project,
+            target=target,
+            fail_on=fail_on,
+            generate_report=generate_report,
+        )
+    else:
+        console.print(f"[bold red]Error:[/] Unknown mode '{mode}'. Use 'dbt-test' or 'direct'.")
+        raise typer.Exit(code=2)
+
+
+def _dbt_ci_test_mode(
+    contracts_dir: Path,
+    dbt_project: Path,
+    manifest_path: Path,
+    target: str | None,
+    fail_on: str,
+    sync_first: bool,
+    generate_report: bool,
+) -> None:
+    """Run validation via dbt test (works with all adapters)."""
+    import subprocess
+
+    from datavow.connectors.dbt_sync import sync_all
+
+    # Step 1: Sync
+    if sync_first:
+        console.print("[bold]Step 1/2:[/] Syncing contracts → dbt tests")
+        results = sync_all(
+            contracts_dir=contracts_dir,
+            dbt_project_dir=dbt_project,
+            clean=True,
+        )
+        total_tests = sum(len(r.singular_tests) + r.generic_test_count for r in results)
+        console.print(f"  [green]✓[/] {len(results)} contract(s) → {total_tests} dbt test(s)")
+    else:
+        console.print("[dim]Step 1/2: Sync skipped (--no-sync)[/]")
+
+    # Step 2: Run dbt test
+    console.print()
+    console.print("[bold]Step 2/2:[/] Running dbt test --select tag:datavow")
+    console.print()
+
+    cmd = ["dbt", "test", "--select", "tag:datavow"]
+    if target:
+        cmd.extend(["--target", target])
+
+    # Run from dbt project directory
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(dbt_project),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except FileNotFoundError:
+        console.print("[bold red]Error:[/] 'dbt' command not found. Install dbt-core first.")
+        raise typer.Exit(code=2)
+    except subprocess.TimeoutExpired:
+        console.print("[bold red]Error:[/] dbt test timed out after 5 minutes.")
+        raise typer.Exit(code=1)
+
+    # Parse dbt output
+    stdout = result.stdout
+
+    # Show dbt output
+    if stdout:
+        for line in stdout.splitlines():
+            if "PASS" in line:
+                console.print(f"  [green]{line.strip()}[/]")
+            elif "FAIL" in line or "ERROR" in line:
+                console.print(f"  [red]{line.strip()}[/]")
+            elif "WARN" in line:
+                console.print(f"  [yellow]{line.strip()}[/]")
+            elif "Completed" in line or "Finished" in line or "Done" in line:
+                console.print(f"  [bold]{line.strip()}[/]")
+
+    # Parse summary from dbt output
+    pass_count = stdout.count(" PASS ")
+    fail_count = stdout.count(" FAIL ") + stdout.count(" ERROR ")
+    warn_count = stdout.count(" WARN ")
+    total = pass_count + fail_count + warn_count
+
+    # Calculate approximate Vow Score
+    if total > 0:
+        score = max(0, 100 - (20 * fail_count + 5 * warn_count))
+    else:
+        score = 0
+
+    # Determine verdict
+    if score >= 95:
+        verdict = "✅ Vow Kept"
+        verdict_style = "bold green"
+    elif score >= 80:
+        verdict = "⚠️ Vow Strained"
+        verdict_style = "bold yellow"
+    elif score >= 50:
+        verdict = "🔧 Vow Broken"
+        verdict_style = "bold red"
+    else:
+        verdict = "❌ Vow Shattered"
+        verdict_style = "bold red"
+
+    console.print()
+    console.print(f"  [{verdict_style}]{verdict}[/] — Vow Score: {score}/100")
+    console.print(
+        f"  Passed: {pass_count}  |  Failed: {fail_count}  |  "
+        f"Warned: {warn_count}  |  Total: {total}"
+    )
+    console.print()
+
+    # Exit code
+    should_fail = fail_count > 0 or (fail_on == "warning" and warn_count > 0)
+    if should_fail:
+        console.print("[bold red]CI FAILED[/]")
+        raise typer.Exit(code=1)
+    elif total == 0:
+        console.print("[bold yellow]WARNING: No datavow tests found. Run sync first.[/]")
+        raise typer.Exit(code=0)
+    else:
+        console.print("[bold green]CI PASSED[/]")
+
+
+def _dbt_ci_direct_mode(
+    contracts_dir: Path,
+    manifest_path: Path,
+    profiles_path: Path | None,
+    dbt_project: Path,
+    target: str | None,
+    fail_on: str,
+    generate_report: bool,
+) -> None:
+    """Run validation via direct warehouse connection (PostgreSQL/DuckDB only)."""
+    from datavow.connectors.dbt import parse_manifest, parse_profiles
+    from datavow.validator import validate_database
+
+    if not manifest_path.exists():
+        console.print(f"[bold red]Error:[/] Manifest not found: {manifest_path}")
+        console.print("[dim]Run 'dbt compile' or 'dbt run' first.[/]")
+        raise typer.Exit(code=2)
+
+    # Parse connection
+    try:
+        conn_info = parse_profiles(
+            profiles_path=profiles_path,
+            project_dir=dbt_project,
+            target_name=target,
+        )
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(code=2)
+
+    if not conn_info.is_duckdb_attachable:
+        console.print(
+            f"[bold red]Error:[/] Direct mode requires PostgreSQL or DuckDB. "
+            f"Your adapter is '{conn_info.adapter}'. Use --mode dbt-test instead."
+        )
+        raise typer.Exit(code=2)
+
+    console.print(f"[bold]Mode:[/] direct ({conn_info.adapter})")
+    console.print()
+
+    # Parse models
+    parsed_models = parse_manifest(manifest_path)
+
+    # Collect contracts
+    contract_files: dict[str, Path] = {}
+    for p in contracts_dir.rglob("*.yaml"):
+        contract_files[p.stem] = p
+    for p in contracts_dir.rglob("*.yml"):
+        if p.stem not in contract_files:
+            contract_files[p.stem] = p
+
+    has_critical = False
+    has_warning = False
+    validated = 0
+    total_score = 0
+
+    for model in parsed_models:
+        contract_path = contract_files.get(model.name)
+        if not contract_path:
+            continue
+
+        table_ref = f"{model.schema}.{model.name}"
+        try:
+            result = validate_database(
+                contract_path=contract_path,
+                connection_info=conn_info,
+                table_ref=table_ref,
+            )
+            v = result.verdict
+            console.print(f"  {v.emoji} {model.name}: {v.value} (score={result.score})")
+            validated += 1
+            total_score += result.score
+            if result.has_critical_failures:
+                has_critical = True
+            if result.warning_count > 0:
+                has_warning = True
+
+            # Generate report if requested
+            if generate_report:
+                from datavow.contract import DataContract
+                from datavow.reporter import write_report
+
+                parsed = DataContract.from_yaml(contract_path)
+                report_dir = Path("datavow-reports")
+                report_dir.mkdir(exist_ok=True)
+                report_path = report_dir / f"{model.name}-report.html"
+                write_report(parsed, result, report_path, format="html")
+
+        except Exception as e:
+            console.print(f"  [bold red]✗[/] {model.name}: error — {e}")
+            has_critical = True
+
+    avg_score = total_score // validated if validated > 0 else 0
+    console.print()
+    console.print(f"[bold]Summary:[/] {validated} validated. Average score: {avg_score}/100")
+
+    should_fail = has_critical or (fail_on == "warning" and has_warning)
+    if should_fail:
+        console.print("[bold red]CI FAILED[/]")
+        raise typer.Exit(code=1)
+    else:
+        console.print("[bold green]CI PASSED[/]")
+
+
 if __name__ == "__main__":
     app()

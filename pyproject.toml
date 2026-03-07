@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datavow"
-version = "0.2.1"
+version = "0.2.2"
 description = "A solemn vow on your data. From YAML to verdict."
 readme = "README.md"
 license = "Apache-2.0"
