@@ -5,11 +5,13 @@
 **A solemn vow on your data. From YAML to verdict.**
 
 Data contract enforcement for modern data teams.
-Define contracts in YAML. Validate with DuckDB. Block in CI. Report for stakeholders.
+Define contracts in YAML. Validate anywhere. Block in CI. Report for stakeholders.
 
+[![PyPI](https://img.shields.io/pypi/v/datavow)](https://pypi.org/project/datavow/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-77%20passed-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-117%20passed-brightgreen.svg)](#)
+[![GitHub Action](https://img.shields.io/badge/GitHub_Action-Marketplace-blue?logo=github)](https://github.com/marketplace/actions/datavow-data-contract-validation)
 
 </div>
 
@@ -26,6 +28,8 @@ Define contracts in YAML. Validate with DuckDB. Block in CI. Report for stakehol
 
 **DataVow fills the gap**: one tool from contract definition to validation, CI blocking, and human-readable reports. Built on [ODCS v3.1](https://bitol.io/open-data-contract-standard/) and powered by [DuckDB](https://duckdb.org/).
 
+Works with **every warehouse**: Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks — via native dbt integration.
+
 ## Install
 
 ```bash
@@ -34,85 +38,149 @@ pip install datavow
 
 ## Quick start
 
+### Standalone (CSV, Parquet, JSON)
+
 ```bash
-# 1. Scaffold a project
 datavow init my-project
-
-# 2. Write a contract (or edit the example)
-cat contracts/orders.yaml
-
-# 3. Validate data against the contract
 datavow validate contracts/orders.yaml data/orders.csv
-
-# 4. Generate a stakeholder report
 datavow report contracts/orders.yaml data/orders.csv
-
-# 5. Run in CI — exit 1 on critical failures
 datavow ci contracts/ data/
+```
+
+### With dbt (any warehouse)
+
+```bash
+# Generate contracts from your dbt models
+datavow dbt generate --manifest target/manifest.json
+
+# Sync contracts → dbt-native tests
+datavow dbt sync --contracts contracts/
+
+# Run tests in your warehouse
+dbt test --select tag:datavow
+
+# Or run the full pipeline in one command
+datavow dbt ci --contracts contracts/ --dbt-project .
+```
+
+### In GitHub Actions
+
+```yaml
+- uses: ludovicschmetz-stack/datavow-action@v1
+  with:
+    contracts: contracts/
+    source: data/
 ```
 
 ## Commands
 
-### `datavow init [project-name]`
+### Core
 
-Scaffold a new project with a `datavow.yaml` config and a `contracts/` directory.
+| Command | Description |
+|---------|-------------|
+| `datavow init` | Scaffold a new project with config and example contract |
+| `datavow define <contract>` | Validate contract syntax, display structure |
+| `datavow validate <contract> <source>` | Validate data against a contract |
+| `datavow report <contract> <source>` | Generate HTML or Markdown report |
+| `datavow ci <contracts_dir> <sources_dir>` | Batch validate, exit 1 on failures |
 
-### `datavow define <contract.yaml>`
+### dbt integration
 
-Validate a contract's YAML syntax and display its structure — fields, rules, SLA — without needing data.
+| Command | Description |
+|---------|-------------|
+| `datavow dbt generate` | Auto-generate contracts from `manifest.json` |
+| `datavow dbt validate` | Validate models via direct warehouse connection |
+| `datavow dbt sync` | Generate dbt-native tests from contracts |
+| `datavow dbt ci` | Full pipeline: sync → dbt test → Vow Score |
 
-```
-✓ Contract orders is valid
+## dbt integration
 
-Name              orders
-Version           1.0.0
-Domain            sales
-Owner             data-team@company.com
+DataVow integrates natively with dbt. Three ways to use it:
 
-Schema: 5 fields (5 required, 1 PII)
-  • order_id integer (required, unique)
-  • customer_email string (required, pii)
-  • total_amount decimal (required)
-  • status string (required)
-  • created_at timestamp (required)
+### 1. Generate contracts from dbt models
 
-Quality rules: 3
-  • no_negative_totals CRITICAL (sql)
-  • email_not_null CRITICAL (not_null)
-  • daily_volume WARNING (row_count)
-
-SLA: freshness=24h, completeness=99.5%
+```bash
+datavow dbt generate --manifest target/manifest.json --output contracts/
 ```
 
-### `datavow validate <contract.yaml> <source>`
+Reads your `manifest.json` and creates DataVow contracts with:
+- Column names, types, and descriptions from your schema
+- `not_null`, `unique`, `accepted_values` tests auto-mapped to quality rules
+- PII flags from column meta/tags
+- Domain extracted from model meta or schema name
 
-Run schema, quality, and freshness checks against a data source (CSV, Parquet, JSON).
+### 2. Sync contracts to dbt tests
 
-```
-datavow validate contracts/orders.yaml data/orders.csv --verbose
-datavow validate contracts/orders.yaml data/orders.csv --ci        # exit 1 on CRITICAL
-datavow validate contracts/orders.yaml data/orders.csv -o json     # JSON output
-datavow validate contracts/orders.yaml data/orders.csv -o summary  # one-liner
-```
-
-### `datavow report <contract.yaml> <source>`
-
-Generate a self-contained HTML or Markdown report. Share it with stakeholders, attach to deliveries, or publish.
-
-```
-datavow report contracts/orders.yaml data/orders.csv                    # HTML (default)
-datavow report contracts/orders.yaml data/orders.csv -f md              # Markdown
-datavow report contracts/orders.yaml data/orders.csv -o my-report.html  # custom path
+```bash
+datavow dbt sync --contracts contracts/ --dbt-project .
 ```
 
-### `datavow ci <contracts_dir> <sources_dir>`
+Converts DataVow rules into dbt-native tests:
+- **Generic tests** (schema.yml): `not_null`, `unique`, `accepted_values`
+- **Singular tests** (SQL files): custom SQL, `row_count`, `range`, `regex`
 
-Batch-validate all contracts against matching data sources. Matches by name convention: `contracts/orders.yaml` → `sources/orders.csv`.
+All generated tests are tagged `datavow`. Run them with:
+
+```bash
+dbt test --select tag:datavow
+```
+
+This works with **every dbt adapter** — Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks.
+
+### 3. On-run-end hook
+
+Install the [datavow-dbt](https://github.com/ludovicschmetz-stack/datavow-dbt) package:
+
+```yaml
+# packages.yml
+packages:
+  - git: "https://github.com/ludovicschmetz-stack/datavow-dbt"
+    revision: v1.0.0
+```
+
+```yaml
+# dbt_project.yml
+on-run-end:
+  - "{{ datavow.datavow_summary(results) }}"
+```
+
+After `dbt build`, you get:
 
 ```
-datavow ci contracts/ data/                    # exit 1 on CRITICAL
-datavow ci contracts/ data/ --fail-on warning  # stricter: fail on WARNING too
+╔══════════════════════════════════════════════════╗
+║  DataVow — A solemn vow on your data            ║
+╠══════════════════════════════════════════════════╣
+║  ❌ Vow Shattered — Score: 0/100                ║
+║  Passed: 15  Failed: 11  Warned: 2  Total: 28  ║
+╚══════════════════════════════════════════════════╝
 ```
+
+Pipeline blocked on failures. Configure with `datavow_fail_on: 'none'` to allow.
+
+### 4. Full CI pipeline
+
+```bash
+datavow dbt ci --contracts contracts/ --dbt-project .
+```
+
+One command: syncs contracts, runs `dbt test`, reports Vow Score, exits 1 on failure.
+
+## GitHub Action
+
+Available on the [GitHub Marketplace](https://github.com/marketplace/actions/datavow-data-contract-validation).
+
+```yaml
+- uses: ludovicschmetz-stack/datavow-action@v1
+  id: datavow
+  with:
+    contracts: contracts/
+    source: data/
+    fail-on: critical
+    generate-report: "true"
+    comment-on-pr: "true"
+```
+
+Features: pip caching, HTML report artifacts, PR comments with Vow Score, configurable fail threshold.
 
 ## Contract format
 
@@ -148,7 +216,7 @@ schema:
     - name: status
       type: string
       required: true
-      allowed_values: [pending, confirmed, shipped, delivered, cancelled]
+      allowed_values: [confirmed, shipped, delivered, cancelled]
     - name: created_at
       type: timestamp
       required: true
@@ -175,10 +243,6 @@ sla:
   completeness: "99.5%"
 ```
 
-### Supported field types
-
-`string`, `integer`, `float`, `decimal`, `boolean`, `date`, `timestamp`
-
 ### Supported quality rule types
 
 | Type | Description | Required fields |
@@ -191,10 +255,6 @@ sla:
 | `accepted_values` | Field values in allowed set | `field`, `values` |
 | `regex` | Field values match pattern | `field`, `pattern` |
 
-### Severity levels
-
-Each rule has a severity: `CRITICAL`, `WARNING`, or `INFO`.
-
 ## Vow Score
 
 ```
@@ -206,9 +266,25 @@ Score = 100 - (20 × CRITICAL + 5 × WARNING + 1 × INFO)
 0-49    ❌ Vow Shattered   — critical violations
 ```
 
+## Data sources
+
+### File-based (via DuckDB)
+
+CSV, Parquet, JSON, JSONL, TSV — zero config, just point to the file.
+
+### Database (via dbt sync)
+
+Any warehouse supported by dbt: Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks, Spark, Trino.
+
+DataVow syncs contracts to dbt tests → dbt executes them in your warehouse. No direct database connection needed from DataVow.
+
+### Database (direct connection)
+
+PostgreSQL and DuckDB via `datavow dbt validate --mode direct`. Uses DuckDB ATTACH for zero-dependency connections.
+
 ## Data Mesh ready
 
-Contracts are organized by domain. Each contract has a `metadata.domain` field. Structure your repo naturally:
+Contracts are organized by domain. Each contract has a `metadata.domain` field:
 
 ```
 contracts/
@@ -221,6 +297,18 @@ contracts/
     └── transactions.yaml
 ```
 
+## Who is DataVow for?
+
+| Persona | Interface | Usage |
+|---------|-----------|-------|
+| Data Engineer | CLI + CI/CD | `datavow ci` in the pipeline |
+| Analytics Engineer | CLI + dbt | `datavow dbt sync` + `dbt test` |
+| Domain Data Owner | YAML contracts | Define and version contracts |
+| Data Governance | Reports | Consolidated compliance view |
+| Data Analyst | Reports | "Can I trust this table?" |
+| Tech Lead | CI gate | No pipeline to prod without a contract |
+| Freelance / Consultant | Branded reports | Proof of quality in deliverables |
+
 ## Tech stack
 
 | Component | Technology |
@@ -230,23 +318,45 @@ contracts/
 | Contract parsing | Pydantic v2 |
 | Data validation | DuckDB |
 | Reporting | Jinja2 |
-| Data formats | CSV, Parquet, JSON (via DuckDB) |
+| File formats | CSV, Parquet, JSON, JSONL, TSV |
+| dbt integration | manifest.json, profiles.yml, dbt test |
+| CI/CD | GitHub Action on Marketplace |
 
 ## Development
 
 ```bash
 git clone https://github.com/ludovicschmetz-stack/datavow.git
 cd datavow
-python -m venv .venv && source .venv/bin/activate
-pip install -e '.[dev]'
+uv venv && source .venv/bin/activate
+uv pip install -e '.[dev]'
 pytest tests/ -v
 ```
 
 ## Roadmap
 
-- [x] **Phase 1 — CLI MVP** (done)
-- [ ] **Phase 2 — Integrations**: dbt post-hook, Airflow operator, GitHub Action, PostgreSQL/MySQL via DuckDB, Slack/Teams notifications
+- [x] **Phase 1 — CLI MVP**: init, define, validate, report, ci
+- [x] **Phase 2 — dbt integration**: generate, sync, validate, ci, on-run-end hook
+- [x] **Phase 2 — GitHub Action**: Marketplace, PR comments, report artifacts
+- [x] **Phase 2 — PyPI**: Trusted Publisher, automated releases
+- [ ] **Phase 2 — Notifications**: Slack, Teams, Email
+- [ ] **Phase 2 — Airflow**: DataVowValidateOperator
 - [ ] **Phase 3 — SaaS**: web dashboard, contract catalogue, role-based access, API
+
+## Pricing
+
+| Tier | Features |
+|------|----------|
+| **Community** (free, forever) | CLI, all commands, dbt integration, GitHub Action, reports |
+| **Team** (coming soon) | Web dashboard, history, alerts, team collaboration |
+| **Business** (coming soon) | SSO, audit trail, custom roles, API, unlimited users |
+
+## Ecosystem
+
+| Repo | Description |
+|------|-------------|
+| [datavow](https://github.com/ludovicschmetz-stack/datavow) | CLI & core engine |
+| [datavow-action](https://github.com/ludovicschmetz-stack/datavow-action) | GitHub Action (Marketplace) |
+| [datavow-dbt](https://github.com/ludovicschmetz-stack/datavow-dbt) | dbt package (on-run-end hook) |
 
 ## License
 
