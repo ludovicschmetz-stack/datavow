@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 try:
-    from jsonschema import Draft201909Validator, ValidationError
+    from jsonschema import Draft201909Validator
 except ImportError:
     raise ImportError(
         "jsonschema is required for ODCS validation. Install with: pip install jsonschema"
