@@ -56,7 +56,7 @@ class TestDefine:
     def test_shows_sla(self):
         result = runner.invoke(app, ["define", str(CONTRACT)])
         assert "SLA" in result.output
-        assert "24h" in result.output
+        assert "99.5%" in result.output
 
     def test_shows_domain(self):
         result = runner.invoke(app, ["define", str(CONTRACT)])
