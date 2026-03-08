@@ -322,9 +322,7 @@ def _convert_property(prop: dict[str, Any]) -> dict[str, Any]:
     return field_def
 
 
-def _convert_quality_rule(
-    qr: dict[str, Any], field_name: str = ""
-) -> dict[str, Any] | None:
+def _convert_quality_rule(qr: dict[str, Any], field_name: str = "") -> dict[str, Any] | None:
     """Convert an ODCS DataQuality rule to a DataVow QualityRule dict."""
     rule_type = qr.get("type", "")
     rule_name = qr.get("name", qr.get("description", f"rule_{id(qr)}"))

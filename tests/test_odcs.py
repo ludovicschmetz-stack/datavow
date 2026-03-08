@@ -236,12 +236,14 @@ class TestOdcsToDatavow:
 class TestAutoDetection:
     def test_loads_datavow_format(self, tmp_datavow_contract: Path):
         from datavow.contract import DataContract
+
         c = DataContract.from_yaml(tmp_datavow_contract)
         assert c.metadata.name == "orders"
         assert c.metadata.domain == "sales"
 
     def test_loads_odcs_format(self, tmp_odcs_contract: Path):
         from datavow.contract import DataContract
+
         c = DataContract.from_yaml(tmp_odcs_contract)
         assert c.metadata.name == "orders"
         assert c.metadata.domain == "sales"
@@ -249,6 +251,7 @@ class TestAutoDetection:
 
     def test_odcs_preserves_field_types(self, tmp_odcs_contract: Path):
         from datavow.contract import DataContract
+
         c = DataContract.from_yaml(tmp_odcs_contract)
         field_names = {f.name for f in c.schema_.fields}
         assert "order_id" in field_names
@@ -258,6 +261,7 @@ class TestAutoDetection:
 
     def test_odcs_with_quality_loads(self, tmp_odcs_quality_contract: Path):
         from datavow.contract import DataContract
+
         c = DataContract.from_yaml(tmp_odcs_quality_contract)
         assert c.metadata.name == "air_quality"
         assert len(c.quality.rules) >= 1

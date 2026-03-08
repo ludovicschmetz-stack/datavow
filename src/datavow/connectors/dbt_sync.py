@@ -179,13 +179,9 @@ def _build_schema_yml(
         tests: list[Any] = []
 
         if field.required:
-            tests.append(
-                {"not_null": {"arguments": {}, "tags": ["datavow"], "severity": "error"}}
-            )
+            tests.append({"not_null": {"arguments": {}, "tags": ["datavow"], "severity": "error"}})
         if field.unique:
-            tests.append(
-                {"unique": {"arguments": {}, "tags": ["datavow"], "severity": "error"}}
-            )
+            tests.append({"unique": {"arguments": {}, "tags": ["datavow"], "severity": "error"}})
         if field.allowed_values:
             tests.append(
                 {

@@ -1241,7 +1241,6 @@ def _dbt_ci_direct_mode(
         console.print("[bold green]CI PASSED[/]")
 
 
-
 # ──────────────────────────────────────────────
 # datavow odcs (subcommand group)
 # ──────────────────────────────────────────────
@@ -1368,7 +1367,6 @@ def odcs_convert(
     if rules_count:
         console.print(f"  Quality rules: {rules_count}")
     console.print()
-
 
 
 if __name__ == "__main__":
