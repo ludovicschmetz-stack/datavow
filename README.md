@@ -1,190 +1,61 @@
-<div align="center">
+<p align="center">
+  <img src="https://datavow.io/img/logo.png" alt="DataVow" width="200">
+</p>
 
-# DataVow
+<h3 align="center">Trust Your Data. Know Why You Can't.</h3>
 
-**A solemn vow on your data. From YAML to verdict.**
+<p align="center">
+  Open-source data contract enforcement for modern data teams.<br>
+  Define contracts in YAML. Sync to dbt. Validate in CI. Block bad data before it reaches production.
+</p>
 
-Data contract enforcement for modern data teams.
-Define contracts in YAML. Validate anywhere. Block in CI. Report for stakeholders.
-
-[![PyPI](https://img.shields.io/pypi/v/datavow)](https://pypi.org/project/datavow/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-117%20passed-brightgreen.svg)](#)
-[![GitHub Action](https://img.shields.io/badge/GitHub_Action-Marketplace-blue?logo=github)](https://github.com/marketplace/actions/datavow-data-contract-validation)
-
-</div>
+<p align="center">
+  <a href="https://pypi.org/project/datavow/"><img src="https://img.shields.io/pypi/v/datavow?color=blue&label=PyPI" alt="PyPI"></a>
+  <a href="https://pypi.org/project/datavow/"><img src="https://img.shields.io/pypi/pyversions/datavow" alt="Python"></a>
+  <a href="https://github.com/ludovicschmetz-stack/datavow/actions"><img src="https://github.com/ludovicschmetz-stack/datavow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ludovicschmetz-stack/datavow/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
+  <a href="https://github.com/marketplace/actions/datavow-data-contract-validation"><img src="https://img.shields.io/badge/GitHub%20Action-Marketplace-blue?logo=github" alt="GitHub Action"></a>
+</p>
 
 ---
 
-## Why DataVow?
+## The problem
 
-89% of data teams report pain points with data modeling and ownership. Data contracts are the answer — but the tooling is fragmented:
+89% of data teams report pain points with data modeling and ownership. Data contracts are the solution — but the tooling is fragmented:
 
-- **dbt tests**: SQL-only, no formal contract, no pre-ingestion validation
-- **Great Expectations**: verbose Python, steep learning curve
-- **Soda**: good YAML checks, but no CI-native workflow or stakeholder reporting
-- **ODCS v3.1**: promising standard, but no complete implementation
+- **dbt tests** → SQL only, no formal contract, no pre-ingestion validation
+- **Great Expectations** → verbose Python, steep learning curve, no standard format
+- **Soda** → good YAML checks, but no CI/CD gate, no stakeholder reporting, no ODCS
+- **Data Contract CLI** → ODCS compatible, but no dbt sync, no scoring, no CI gate
 
-**DataVow fills the gap**: one tool from contract definition to validation, CI blocking, and human-readable reports. Built on [ODCS v3.1](https://bitol.io/open-data-contract-standard/) and powered by [DuckDB](https://duckdb.org/).
-
-Works with **every warehouse**: Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks — via native dbt integration.
-
-## Install
-
-```bash
-pip install datavow
-```
+**DataVow covers the full lifecycle: define → sync dbt → validate → block → report.** One tool. One standard.
 
 ## Quick start
 
-### Standalone (CSV, Parquet, JSON)
-
 ```bash
+pip install datavow
+
+# Initialize a project
 datavow init my-project
-datavow validate contracts/orders.yaml data/orders.csv
-datavow report contracts/orders.yaml data/orders.csv
-datavow ci contracts/ data/
+
+# Define a contract
+datavow define contracts/orders.yaml
+
+# Validate data against contracts
+datavow validate contracts/orders.yaml --source data/orders.csv
+
+# Generate an HTML report
+datavow report contracts/orders.yaml --source data/orders.csv --format html
+
+# Run in CI mode (exit code 1 on critical violations)
+datavow ci contracts/ --source data/
 ```
 
-### With dbt (any warehouse)
+## Key features
 
-```bash
-# Generate contracts from your dbt models
-datavow dbt generate --manifest target/manifest.json
+### YAML-first contracts (ODCS v3.1 native)
 
-# Sync contracts → dbt-native tests
-datavow dbt sync --contracts contracts/
-
-# Run tests in your warehouse
-dbt test --select tag:datavow
-
-# Or run the full pipeline in one command
-datavow dbt ci --contracts contracts/ --dbt-project .
-```
-
-### In GitHub Actions
-
-```yaml
-- uses: ludovicschmetz-stack/datavow-action@v1
-  with:
-    contracts: contracts/
-    source: data/
-```
-
-## Commands
-
-### Core
-
-| Command | Description |
-|---------|-------------|
-| `datavow init` | Scaffold a new project with config and example contract |
-| `datavow define <contract>` | Validate contract syntax, display structure |
-| `datavow validate <contract> <source>` | Validate data against a contract |
-| `datavow report <contract> <source>` | Generate HTML or Markdown report |
-| `datavow ci <contracts_dir> <sources_dir>` | Batch validate, exit 1 on failures |
-
-### dbt integration
-
-| Command | Description |
-|---------|-------------|
-| `datavow dbt generate` | Auto-generate contracts from `manifest.json` |
-| `datavow dbt validate` | Validate models via direct warehouse connection |
-| `datavow dbt sync` | Generate dbt-native tests from contracts |
-| `datavow dbt ci` | Full pipeline: sync → dbt test → Vow Score |
-
-## dbt integration
-
-DataVow integrates natively with dbt. Three ways to use it:
-
-### 1. Generate contracts from dbt models
-
-```bash
-datavow dbt generate --manifest target/manifest.json --output contracts/
-```
-
-Reads your `manifest.json` and creates DataVow contracts with:
-- Column names, types, and descriptions from your schema
-- `not_null`, `unique`, `accepted_values` tests auto-mapped to quality rules
-- PII flags from column meta/tags
-- Domain extracted from model meta or schema name
-
-### 2. Sync contracts to dbt tests
-
-```bash
-datavow dbt sync --contracts contracts/ --dbt-project .
-```
-
-Converts DataVow rules into dbt-native tests:
-- **Generic tests** (schema.yml): `not_null`, `unique`, `accepted_values`
-- **Singular tests** (SQL files): custom SQL, `row_count`, `range`, `regex`
-
-All generated tests are tagged `datavow`. Run them with:
-
-```bash
-dbt test --select tag:datavow
-```
-
-This works with **every dbt adapter** — Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks.
-
-### 3. On-run-end hook
-
-Install the [datavow-dbt](https://github.com/ludovicschmetz-stack/datavow-dbt) package:
-
-```yaml
-# packages.yml
-packages:
-  - git: "https://github.com/ludovicschmetz-stack/datavow-dbt"
-    revision: v1.0.0
-```
-
-```yaml
-# dbt_project.yml
-on-run-end:
-  - "{{ datavow.datavow_summary(results) }}"
-```
-
-After `dbt build`, you get:
-
-```
-╔══════════════════════════════════════════════════╗
-║  DataVow — A solemn vow on your data            ║
-╠══════════════════════════════════════════════════╣
-║  ❌ Vow Shattered — Score: 0/100                ║
-║  Passed: 15  Failed: 11  Warned: 2  Total: 28  ║
-╚══════════════════════════════════════════════════╝
-```
-
-Pipeline blocked on failures. Configure with `datavow_fail_on: 'none'` to allow.
-
-### 4. Full CI pipeline
-
-```bash
-datavow dbt ci --contracts contracts/ --dbt-project .
-```
-
-One command: syncs contracts, runs `dbt test`, reports Vow Score, exits 1 on failure.
-
-## GitHub Action
-
-Available on the [GitHub Marketplace](https://github.com/marketplace/actions/datavow-data-contract-validation).
-
-```yaml
-- uses: ludovicschmetz-stack/datavow-action@v1
-  id: datavow
-  with:
-    contracts: contracts/
-    source: data/
-    fail-on: critical
-    generate-report: "true"
-    comment-on-pr: "true"
-```
-
-Features: pip caching, HTML report artifacts, PR comments with Vow Score, configurable fail threshold.
-
-## Contract format
-
-DataVow contracts are a superset of [ODCS v3.1](https://bitol.io/open-data-contract-standard/) — compatible but extended with severity, SLA, and PII flags.
+Define schemas, quality rules, and SLAs in readable YAML. DataVow supports **both** its own format and native ODCS v3.1 contracts — auto-detected, no config needed.
 
 ```yaml
 apiVersion: datavow/v1
@@ -194,8 +65,6 @@ metadata:
   version: 1.0.0
   owner: data-team@company.com
   domain: sales
-  description: "Customer orders from the e-commerce platform"
-  tags: [pii, financial, critical]
 
 schema:
   type: table
@@ -208,18 +77,6 @@ schema:
       type: string
       required: true
       pii: true
-      pattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
-    - name: total_amount
-      type: decimal
-      required: true
-      min: 0
-    - name: status
-      type: string
-      required: true
-      allowed_values: [confirmed, shipped, delivered, cancelled]
-    - name: created_at
-      type: timestamp
-      required: true
 
 quality:
   rules:
@@ -228,140 +85,151 @@ quality:
       query: "SELECT COUNT(*) FROM {table} WHERE total_amount < 0"
       threshold: 0
       severity: CRITICAL
-    - name: email_not_null
-      type: not_null
-      field: customer_email
-      severity: CRITICAL
-    - name: daily_volume
-      type: row_count
-      min: 1000
-      max: 100000
-      severity: WARNING
-
-sla:
-  freshness: 24h
-  completeness: "99.5%"
 ```
 
-### Supported quality rule types
+### `datavow dbt sync` — the killer feature
 
-| Type | Description | Required fields |
-|------|-------------|-----------------|
-| `sql` | Custom SQL query returning a count | `query`, `threshold` |
-| `not_null` | Field has no nulls | `field` |
-| `unique` | Field values are unique | `field` |
-| `row_count` | Row count within bounds | `min`, `max` |
-| `range` | Field values within bounds | `field`, `min_value`, `max_value` |
-| `accepted_values` | Field values in allowed set | `field`, `values` |
-| `regex` | Field values match pattern | `field`, `pattern` |
+One command generates dbt-native tests from your contracts. Works on **every** dbt adapter — no connector needed.
 
-## Vow Score
+```bash
+# Generate dbt tests from contracts
+datavow dbt sync contracts/ --dbt-project-dir .
+
+# 3 contracts → 28 tests generated (generic + singular)
+# All tagged `datavow` for easy filtering
+```
+
+### Vow Score — every validation renders a verdict
 
 ```
-Score = 100 - (20 × CRITICAL + 5 × WARNING + 1 × INFO)
+Vow Score = 100 - (20 × CRITICAL + 5 × WARNING + 1 × INFO)
 
-95-100  ✅ Vow Kept       — fully compliant
-80-94   ⚠️ Vow Strained   — action needed
-50-79   🔧 Vow Broken     — blocking issues
-0-49    ❌ Vow Shattered   — critical violations
+  95-100  ✅ Vow Kept      — fully compliant, ship it
+  80-94   ⚠️ Vow Strained  — action needed
+  50-79   🔧 Vow Broken    — blocking issues
+   0-49   ❌ Vow Shattered  — critical violations
 ```
+
+### CI pipeline gating
+
+Block bad data automatically. No manual intervention.
+
+**GitHub Action** ([Marketplace](https://github.com/marketplace/actions/datavow-data-contract-validation)):
+
+```yaml
+- uses: ludovicschmetz-stack/datavow-action@v1
+  with:
+    contracts: contracts/
+    source: data/
+    fail-on: critical
+    comment-on-pr: "true"
+```
+
+**dbt on-run-end hook** ([datavow-dbt](https://github.com/ludovicschmetz-stack/datavow-dbt)):
+
+```yaml
+# dbt_project.yml
+on-run-end:
+  - "{{ datavow_summary() }}"
+
+vars:
+  datavow_fail_on: broken  # block pipeline on Vow Broken or worse
+```
+
+### ODCS v3.1 — validate against the official standard
+
+```bash
+# Validate a contract against the ODCS v3.1 JSON Schema
+datavow odcs check contracts/orders.yaml
+
+# Convert ODCS native → DataVow format
+datavow odcs convert contracts/orders-odcs.yaml -o contracts/orders.yaml
+```
+
+DataVow bundles the official ODCS v3.1.0 JSON Schema (2928 lines, Draft 2019-09). No other CLI tool does this.
+
+## Full command reference
+
+| Command | Description |
+|---|---|
+| `datavow init` | Initialize project with config and example contract |
+| `datavow define` | Create or edit a data contract interactively |
+| `datavow validate` | Validate data against contracts |
+| `datavow report` | Generate HTML or Markdown reports |
+| `datavow ci` | CI mode — validate + exit code 0/1 |
+| `datavow dbt generate` | Auto-generate contracts from dbt manifest |
+| `datavow dbt validate` | Validate against dbt warehouse (via profiles.yml) |
+| `datavow dbt sync` | Generate dbt tests from contracts |
+| `datavow dbt ci` | Full pipeline: sync → dbt test → Vow Score |
+| `datavow odcs check` | Validate contract against ODCS v3.1 JSON Schema |
+| `datavow odcs convert` | Convert ODCS native → DataVow format |
 
 ## Data sources
 
-### File-based (via DuckDB)
+DataVow validates files and databases via DuckDB:
 
-CSV, Parquet, JSON, JSONL, TSV — zero config, just point to the file.
+| Source | How |
+|---|---|
+| CSV, Parquet, JSON, TSV | Direct file validation |
+| PostgreSQL | `datavow validate --source postgresql://...` |
+| DuckDB | `datavow validate --source path/to/db.duckdb` |
+| Snowflake, BigQuery, Redshift, SQL Server | `pip install datavow[snowflake]` (via DuckDB ATTACH) |
 
-### Database (via dbt sync)
+## Built for your whole team
 
-Any warehouse supported by dbt: Snowflake, BigQuery, Redshift, SQL Server, PostgreSQL, DuckDB, Databricks, Spark, Trino.
+| Persona | Uses | Gets |
+|---|---|---|
+| **Data Engineer** | `datavow ci` in pipeline | Automated quality gate |
+| **Analytics Engineer** | `datavow dbt sync` | One source of truth, zero test duplication |
+| **Domain Data Owner** | YAML contracts in git | Versioned, reviewable data agreements |
+| **Data Governance** | HTML reports | Conformity view across domains |
+| **Tech Lead** | CI gate + Vow Score | No pipeline in prod without a contract |
+| **Freelance / Consultant** | `datavow report` | Quality proof attached to every delivery |
 
-DataVow syncs contracts to dbt tests → dbt executes them in your warehouse. No direct database connection needed from DataVow.
-
-### Database (direct connection)
-
-PostgreSQL and DuckDB via `datavow dbt validate --mode direct`. Uses DuckDB ATTACH for zero-dependency connections.
-
-## Data Mesh ready
-
-Contracts are organized by domain. Each contract has a `metadata.domain` field:
+## Architecture
 
 ```
-contracts/
-├── sales/
-│   ├── orders.yaml
-│   └── invoices.yaml
-├── logistics/
-│   └── shipments.yaml
-└── finance/
-    └── transactions.yaml
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│  YAML       │    │   DataVow    │    │   Outputs   │
+│  Contracts  │───▶│   Engine     │───▶│             │
+│  (ODCS/DV)  │    │   (DuckDB)   │    │  ✅ Score   │
+└─────────────┘    └──────┬───────┘    │  📊 Report  │
+                          │            │  🚦 Exit 1  │
+              ┌───────────┼──────┐     └─────────────┘
+              ▼           ▼      ▼
+          CSV/Parquet  PostgreSQL  dbt
 ```
-
-## Who is DataVow for?
-
-| Persona | Interface | Usage |
-|---------|-----------|-------|
-| Data Engineer | CLI + CI/CD | `datavow ci` in the pipeline |
-| Analytics Engineer | CLI + dbt | `datavow dbt sync` + `dbt test` |
-| Domain Data Owner | YAML contracts | Define and version contracts |
-| Data Governance | Reports | Consolidated compliance view |
-| Data Analyst | Reports | "Can I trust this table?" |
-| Tech Lead | CI gate | No pipeline to prod without a contract |
-| Freelance / Consultant | Branded reports | Proof of quality in deliverables |
-
-## Tech stack
-
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.12+ |
-| CLI | Typer + Rich |
-| Contract parsing | Pydantic v2 |
-| Data validation | DuckDB |
-| Reporting | Jinja2 |
-| File formats | CSV, Parquet, JSON, JSONL, TSV |
-| dbt integration | manifest.json, profiles.yml, dbt test |
-| CI/CD | GitHub Action on Marketplace |
-
-## Development
-
-```bash
-git clone https://github.com/ludovicschmetz-stack/datavow.git
-cd datavow
-uv venv && source .venv/bin/activate
-uv pip install -e '.[dev]'
-pytest tests/ -v
-```
-
-## Roadmap
-
-- [x] **Phase 1 — CLI MVP**: init, define, validate, report, ci
-- [x] **Phase 2 — dbt integration**: generate, sync, validate, ci, on-run-end hook
-- [x] **Phase 2 — GitHub Action**: Marketplace, PR comments, report artifacts
-- [x] **Phase 2 — PyPI**: Trusted Publisher, automated releases
-- [ ] **Phase 2 — Notifications**: Slack, Teams, Email
-- [ ] **Phase 2 — Airflow**: DataVowValidateOperator
-- [ ] **Phase 3 — SaaS**: web dashboard, contract catalogue, role-based access, API
-
-## Pricing
-
-| Tier | Features |
-|------|----------|
-| **Community** (free, forever) | CLI, all commands, dbt integration, GitHub Action, reports |
-| **Team** (coming soon) | Web dashboard, history, alerts, team collaboration |
-| **Business** (coming soon) | SSO, audit trail, custom roles, API, unlimited users |
 
 ## Ecosystem
 
-| Repo | Description |
-|------|-------------|
-| [datavow](https://github.com/ludovicschmetz-stack/datavow) | CLI & core engine |
-| [datavow-action](https://github.com/ludovicschmetz-stack/datavow-action) | GitHub Action (Marketplace) |
-| [datavow-dbt](https://github.com/ludovicschmetz-stack/datavow-dbt) | dbt package (on-run-end hook) |
+| Package | Description | Version |
+|---|---|---|
+| [`datavow`](https://pypi.org/project/datavow/) | CLI — define, validate, report, CI | v0.3.0 |
+| [`datavow-action`](https://github.com/marketplace/actions/datavow-data-contract-validation) | GitHub Action — CI gate | v1.0.0 |
+| [`datavow-dbt`](https://github.com/ludovicschmetz-stack/datavow-dbt) | dbt package — on-run-end Vow Score | v1.0.0 |
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+# Development setup
+git clone https://github.com/ludovicschmetz-stack/datavow.git
+cd datavow
+python -m venv .venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+pytest  # 137 tests
+```
 
 ## License
 
-[Apache 2.0](LICENSE) — free and open source forever. The CLI stays free. Monetization comes from the SaaS (Phase 3).
+[Apache 2.0](LICENSE) — free forever. Use it, fork it, ship it.
 
-## Author
+---
 
-Built by [Ludovic Schmetz](https://github.com/ludovicschmetz-stack) — Senior Data Engineer/Architect, Luxembourg. Also the author of [Olympus](https://github.com/ludovicschmetz-stack/olympus).
+<p align="center">
+  <a href="https://datavow.io">Website</a> · 
+  <a href="https://datavow.io/docs">Documentation</a> · 
+  <a href="https://pypi.org/project/datavow/">PyPI</a> · 
+  <a href="https://github.com/ludovicschmetz-stack/datavow/issues">Issues</a>
+</p>
