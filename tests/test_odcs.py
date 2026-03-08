@@ -10,7 +10,6 @@ import yaml
 
 from datavow.odcs import (
     ContractFormat,
-    OdcsValidationResult,
     detect_format,
     odcs_to_datavow,
     validate_odcs_schema,
