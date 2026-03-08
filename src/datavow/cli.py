@@ -1241,5 +1241,135 @@ def _dbt_ci_direct_mode(
         console.print("[bold green]CI PASSED[/]")
 
 
+
+# ──────────────────────────────────────────────
+# datavow odcs (subcommand group)
+# ──────────────────────────────────────────────
+
+odcs_app = typer.Typer(
+    name="odcs",
+    help="ODCS standard tools — validate contracts against the official JSON Schema.",
+    no_args_is_help=True,
+)
+app.add_typer(odcs_app)
+
+
+@odcs_app.command(name="check")
+def odcs_check(
+    contract: Annotated[
+        Path,
+        typer.Argument(help="Path to an ODCS YAML contract file.", exists=True, readable=True),
+    ],
+    schema_version: Annotated[
+        str,
+        typer.Option("--schema-version", "-s", help="ODCS schema version to validate against."),
+    ] = "v3.1.0",
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Exit 1 on validation errors."),
+    ] = False,
+) -> None:
+    """Validate a contract against the official ODCS JSON Schema.
+
+    Checks structural compliance with the Open Data Contract Standard.
+    This validates the contract *format*, not the data itself.
+    """
+    from datavow.odcs import validate_odcs_schema
+
+    try:
+        result = validate_odcs_schema(contract, schema_version=schema_version)
+    except FileNotFoundError as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        raise typer.Exit(code=2)
+    except Exception as e:
+        console.print(f"[bold red]Schema validation error:[/] {e}")
+        raise typer.Exit(code=2)
+
+    console.print()
+    if result.valid:
+        console.print(
+            Panel(
+                f"[bold green]✓[/] Contract is valid ODCS {result.schema_version}",
+                title="ODCS Schema Check",
+                border_style="green",
+            )
+        )
+    else:
+        console.print(
+            Panel(
+                f"[bold red]✗[/] {result.error_count} validation error(s) found",
+                title="ODCS Schema Check",
+                border_style="red",
+            )
+        )
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Path", style="cyan", max_width=40)
+        table.add_column("Error", style="white")
+        for err in result.errors[:20]:
+            table.add_row(err.path, err.message[:120])
+        console.print(table)
+
+        if result.error_count > 20:
+            console.print(f"  [dim]... and {result.error_count - 20} more[/]")
+
+    console.print()
+
+    if strict and not result.valid:
+        raise typer.Exit(code=1)
+
+
+@odcs_app.command(name="convert")
+def odcs_convert(
+    contract: Annotated[
+        Path,
+        typer.Argument(help="Path to an ODCS-native YAML contract.", exists=True, readable=True),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output path for the DataVow contract."),
+    ] = Path("datavow_contract.yaml"),
+) -> None:
+    """Convert an ODCS-native contract to DataVow format.
+
+    Reads an ODCS v3.x contract and produces a DataVow-native YAML
+    that can be used with `datavow validate` and `datavow ci`.
+    """
+    from datavow.odcs import ContractFormat, detect_format, odcs_to_datavow
+
+    try:
+        with open(contract) as f:
+            raw = yaml.safe_load(f)
+    except Exception as e:
+        console.print(f"[bold red]Error reading file:[/] {e}")
+        raise typer.Exit(code=2)
+
+    if not isinstance(raw, dict):
+        console.print("[bold red]Error:[/] Expected a YAML mapping")
+        raise typer.Exit(code=2)
+
+    fmt = detect_format(raw)
+    if fmt == ContractFormat.DATAVOW:
+        console.print("[yellow]This file is already in DataVow format.[/]")
+        raise typer.Exit(code=0)
+    if fmt == ContractFormat.UNKNOWN:
+        console.print("[bold red]Error:[/] Could not detect contract format.")
+        raise typer.Exit(code=2)
+
+    converted = odcs_to_datavow(raw)
+
+    with open(output, "w") as f:
+        yaml.dump(converted, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    console.print()
+    console.print(f"[bold green]✓[/] Converted to DataVow format: [bold]{output}[/]")
+    console.print(f"  Name: {converted['metadata']['name']}")
+    console.print(f"  Fields: {len(converted['schema']['fields'])}")
+    rules_count = len(converted.get("quality", {}).get("rules", []))
+    if rules_count:
+        console.print(f"  Quality rules: {rules_count}")
+    console.print()
+
+
+
 if __name__ == "__main__":
     app()

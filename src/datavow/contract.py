@@ -204,7 +204,11 @@ class DataContract(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "DataContract":
-        """Load and validate a contract from a YAML file."""
+        """Load and validate a contract from a YAML file.
+
+        Supports both DataVow-native and ODCS-native formats.
+        ODCS-native contracts are automatically detected and converted.
+        """
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Contract file not found: {path}")
@@ -216,5 +220,16 @@ class DataContract(BaseModel):
 
         if not isinstance(raw, dict):
             raise ValueError(f"Invalid contract format in {path}: expected a YAML mapping")
+
+        return cls.from_dict(raw)
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "DataContract":
+        """Load from a parsed dict, auto-detecting DataVow vs ODCS format."""
+        from datavow.odcs import ContractFormat, detect_format, odcs_to_datavow
+
+        fmt = detect_format(raw)
+        if fmt == ContractFormat.ODCS:
+            raw = odcs_to_datavow(raw)
 
         return cls.model_validate(raw)
