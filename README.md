@@ -95,7 +95,7 @@ One command generates dbt-native tests from your contracts. Works on **every** d
 # Generate dbt tests from contracts
 datavow dbt sync contracts/ --dbt-project-dir .
 
-# 3 contracts → 28 tests generated (generic + singular)
+# Generates generic + singular tests from your contracts
 # All tagged `datavow` for easy filtering
 ```
 
@@ -173,7 +173,8 @@ DataVow validates files and databases via DuckDB:
 | CSV, Parquet, JSON, TSV | Direct file validation |
 | PostgreSQL | `datavow validate --source postgresql://...` |
 | DuckDB | `datavow validate --source path/to/db.duckdb` |
-| Snowflake, BigQuery, Redshift, SQL Server | `pip install datavow[snowflake]` (via DuckDB ATTACH) |
+
+*Snowflake, BigQuery, Redshift, and SQL Server support is on the roadmap.*
 
 ## Built for your whole team
 
