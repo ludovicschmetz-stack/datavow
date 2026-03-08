@@ -52,5 +52,4 @@ quality:
       severity: WARNING
 
 sla:
-  freshness: 24h
   completeness: "99.5%"

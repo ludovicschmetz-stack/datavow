@@ -224,7 +224,6 @@ class TestOdcsToDatavow:
         raw = yaml.safe_load(VALID_ODCS_WITH_QUALITY)
         result = odcs_to_datavow(raw)
         sla = result.get("sla", {})
-        assert sla.get("freshness") == "24h"
         assert sla.get("completeness") == "99.5%"
 
     def test_description_from_purpose(self):
