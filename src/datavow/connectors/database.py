@@ -2,7 +2,7 @@
 
 Uses DuckDB ATTACH for PostgreSQL (zero extra deps).
 DuckDB adapter connects directly to the .duckdb file.
-Other adapters require optional dependencies installed via extras.
+Other adapters should use 'datavow dbt sync' to validate via dbt.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def load_database_table(
         raise ValueError(
             f"Adapter '{connection_info.adapter}' not yet supported for direct validation. "
             f"Supported: postgres, duckdb. "
-            f"For other warehouses, install extras: pip install datavow[{connection_info.adapter}]"
+            f"For cloud warehouses, use 'datavow dbt sync' instead — it generates dbt-native tests that run on your existing dbt adapter."
         )
 
 

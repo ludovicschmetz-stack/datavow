@@ -728,10 +728,14 @@ def dbt_validate(
 
     if not conn_info.is_duckdb_attachable:
         console.print(
-            f"[bold red]Error:[/] Adapter '{conn_info.adapter}' requires extras. "
-            f"Install: pip install datavow[{conn_info.adapter}]"
+            f"[bold red]Error:[/] Adapter '{conn_info.adapter}' is not supported for direct validation. "
+            f"Supported adapters: postgres, duckdb."
         )
-        console.print("[dim]Currently supported without extras: postgres, duckdb[/]")
+        console.print(
+            "[dim]For cloud warehouses (Snowflake, BigQuery, Redshift, Databricks), "
+            "use 'datavow dbt sync' instead — it generates dbt-native tests that run "
+            "on your existing dbt adapter.[/]"
+        )
         raise typer.Exit(code=2)
 
     # Parse models from manifest

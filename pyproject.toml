@@ -42,17 +42,6 @@ Changelog = "https://github.com/ludovicschmetz-stack/datavow/blob/main/CHANGELOG
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.4"]
-snowflake = ["snowflake-connector-python>=3.0"]
-bigquery = ["google-cloud-bigquery>=3.0", "db-dtypes>=1.0"]
-redshift = ["redshift-connector>=2.0"]
-sqlserver = ["pymssql>=2.2"]
-all-warehouses = [
-    "snowflake-connector-python>=3.0",
-    "google-cloud-bigquery>=3.0",
-    "db-dtypes>=1.0",
-    "redshift-connector>=2.0",
-    "pymssql>=2.2",
-]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datavow"]

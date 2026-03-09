@@ -174,7 +174,7 @@ DataVow validates files and databases via DuckDB:
 | PostgreSQL | `datavow validate --source postgresql://...` |
 | DuckDB | `datavow validate --source path/to/db.duckdb` |
 
-*Snowflake, BigQuery, Redshift, and SQL Server support is on the roadmap.*
+For cloud warehouses (Snowflake, BigQuery, Redshift, Databricks), use `datavow dbt sync` — it generates dbt-native tests that run on your existing dbt adapter. No extra connector needed.
 
 ## Built for your whole team
 
