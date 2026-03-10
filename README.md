@@ -15,9 +15,12 @@
   <a href="https://github.com/ludovicschmetz-stack/datavow/actions"><img src="https://github.com/ludovicschmetz-stack/datavow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/ludovicschmetz-stack/datavow/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
   <a href="https://github.com/marketplace/actions/datavow-data-contract-validation"><img src="https://img.shields.io/badge/GitHub%20Action-Marketplace-blue?logo=github" alt="GitHub Action"></a>
+  <a href="https://github.com/bitol-io/open-data-contract-standard/blob/main/vendors.md"><img src="https://img.shields.io/badge/ODCS-Official%20Vendor-green?logo=linux" alt="ODCS Vendor"></a>
 </p>
 
 ---
+
+> Official ODCS Vendor — [Listed on the Bitol registry](https://github.com/bitol-io/open-data-contract-standard/blob/main/vendors.md) alongside Data Contract CLI, Data Caterer, and DQC.ai.
 
 ## The problem
 
