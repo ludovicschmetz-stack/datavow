@@ -102,6 +102,53 @@ datavow dbt sync contracts/ --dbt-project-dir .
 # All tagged `datavow` for easy filtering
 ```
 
+### Airflow Integration
+
+Run data contract validation as an Airflow task with `DataVowOperator`.
+
+```bash
+pip install datavow[airflow]   # requires apache-airflow>=2.7
+```
+
+**Standalone DAG:**
+
+```python
+from datavow.airflow.operators import DataVowOperator
+
+validate = DataVowOperator(
+    task_id="validate_orders",
+    contract_path="/data/contracts/orders.yaml",
+    data_path="/data/bronze/orders.parquet",
+    on_failure="fail",       # fail | warn | skip
+    fail_on="strained",     # strained (<95) | broken (<80) | shattered (<50)
+    report_format="html",
+    report_path="/data/reports/orders.html",
+)
+```
+
+**Lakecast YAML (ADR-013):**
+
+```yaml
+tasks:
+  - name: validate_orders
+    type: datavow
+    contract: contracts/orders.yaml
+    source: "{{ params.bronze_path }}/orders.parquet"
+    fail_on: broken
+```
+
+| XCom Key | Description |
+|---|---|
+| `vow_score` | Integer 0–100 |
+| `vow_verdict` | Vow Kept / Strained / Broken / Shattered |
+| `violations_critical` | Count of CRITICAL failures |
+| `violations_warning` | Count of WARNING failures |
+| `violations_info` | Count of INFO failures |
+| `contract_name` | Contract name from YAML |
+| `report_path` | Path to generated report (if any) |
+
+> **K8s executor:** Imports are lazy — the scheduler node does not need datavow installed.
+
 ### Vow Score — every validation renders a verdict
 
 ```
