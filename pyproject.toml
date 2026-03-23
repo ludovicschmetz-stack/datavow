@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datavow"
-version = "0.3.1"
+version = "0.4.0"
 description = "A solemn vow on your data. From YAML to verdict."
 readme = "README.md"
 license = "Apache-2.0"
@@ -42,6 +42,7 @@ Changelog = "https://github.com/ludovicschmetz-stack/datavow/blob/main/CHANGELOG
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.4"]
+airflow = ["apache-airflow>=2.7"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datavow"]
