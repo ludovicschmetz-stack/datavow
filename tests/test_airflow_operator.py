@@ -357,18 +357,14 @@ class TestWarn:
     def test_warn_does_not_raise(self):
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(critical=1)  # score=80 < 95
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", on_failure="warn", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", on_failure="warn", task_id="t")
         ret = op.execute(_make_context())
         assert ret["vow_score"] == 80
 
     def test_warn_logs_warning(self):
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(critical=1)
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", on_failure="warn", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", on_failure="warn", task_id="t")
         with patch("datavow.airflow.operators.datavow_operator.log") as mock_log:
             op.execute(_make_context())
             mock_log.warning.assert_called_once()
@@ -384,18 +380,14 @@ class TestSkip:
     def test_skip_raises_skip_exception(self):
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(critical=1)  # score=80 < 95
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", on_failure="skip", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", on_failure="skip", task_id="t")
         with pytest.raises(_AirflowSkipException):
             op.execute(_make_context())
 
     def test_skip_xcom_pushed(self):
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(critical=1)
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", on_failure="skip", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", on_failure="skip", task_id="t")
         ctx = _make_context()
         with pytest.raises(_AirflowSkipException):
             op.execute(ctx)
@@ -492,9 +484,10 @@ class TestReport:
         ctx = _make_context()
         op.execute(ctx)
         call_kwargs = _mock_write_report.call_args
-        assert call_kwargs.kwargs.get("format") == "markdown" or call_kwargs[1].get(
-            "format"
-        ) == "markdown"
+        assert (
+            call_kwargs.kwargs.get("format") == "markdown"
+            or call_kwargs[1].get("format") == "markdown"
+        )
 
 
 # ===================================================================
@@ -516,9 +509,7 @@ class TestEdge:
         """fail_on=broken should pass when score >= 80."""
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(warning=1)  # score=95
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", fail_on="broken", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", fail_on="broken", task_id="t")
         ret = op.execute(_make_context())
         assert ret["vow_score"] == 95
 
@@ -526,9 +517,7 @@ class TestEdge:
         """fail_on=shattered should pass even when score is in broken range."""
         Op = _get_operator_class()
         _mock_validate.return_value = _make_result(critical=2)  # score=60
-        op = Op(
-            contract_path="c.yaml", data_path="d.csv", fail_on="shattered", task_id="t"
-        )
+        op = Op(contract_path="c.yaml", data_path="d.csv", fail_on="shattered", task_id="t")
         ret = op.execute(_make_context())
         assert ret["vow_score"] == 60
 
